@@ -13,6 +13,7 @@ import numpy as np
 
 from models.schemas import DesignUploadResponse, ErrorResponse
 from services.physics_service import PhysicsService
+from config import settings
 
 router = APIRouter()
 
@@ -32,8 +33,8 @@ def convert_numpy_types(obj):
     return obj
 
 # Storage directory for uploaded STL files
-UPLOAD_DIR = Path("uploads")
-UPLOAD_DIR.mkdir(exist_ok=True)
+UPLOAD_DIR = settings.upload_path
+UPLOAD_DIR.mkdir(exist_ok=True, parents=True)
 
 
 @router.post("/upload", response_model=DesignUploadResponse)

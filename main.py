@@ -11,12 +11,13 @@ import uvicorn
 from pathlib import Path
 
 from routers import simulations, designs, health
+from config import settings
 
 # Create FastAPI app
 app = FastAPI(
-    title="AeroClass API",
+    title=settings.api_title,
     description="Educational aerodynamics simulation API for STEM classrooms",
-    version="0.1.0",
+    version=settings.api_version,
     docs_url="/api/docs",
     redoc_url="/api/redoc"
 )
@@ -24,7 +25,7 @@ app = FastAPI(
 # CORS middleware for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production: specify frontend domain
+    allow_origins=settings.cors_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -42,7 +43,7 @@ async def root():
     return RedirectResponse(url="/ui/index.html")
 
 # Mount static files LAST (so API routes take precedence)
-UI_PATH = Path(__file__).parent / "UI_test"
+UI_PATH = settings.ui_path_obj
 print(f"UI Path: {UI_PATH}")
 print(f"UI Path exists: {UI_PATH.exists()}")
 if UI_PATH.exists():
@@ -58,8 +59,8 @@ else:
 if __name__ == "__main__":
     uvicorn.run(
         "main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True,
+        host=settings.api_host,
+        port=settings.api_port,
+        reload=False,  # Disabled for production
         log_level="info"
     )

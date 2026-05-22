@@ -15,10 +15,11 @@ from models.schemas import (
     MaterialComparisonResponse
 )
 from services.physics_service import PhysicsService
+from config import settings
 
 router = APIRouter()
 
-UPLOAD_DIR = Path("uploads")
+UPLOAD_DIR = settings.upload_path
 
 
 def convert_numpy_types(obj):
