@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Results - AeroClass</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f7fa;
+            color: #333;
+        }
+
+        .navbar {
+            background: white;
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: #333;
+            font-weight: 500;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+
+        .header {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 1.5rem;
+        }
+
+        .design-title {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .design-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+        }
+
+        .design-info h1 {
+            font-size: 2rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .design-meta {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: white;
+            color: #667eea;
+            border: 2px solid #667eea;
+        }
+
+        .status-bar {
+            display: flex;
+            gap: 2rem;
+            padding: 1rem;
+            background: #f8f9ff;
+            border-radius: 8px;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .status-label {
+            font-size: 0.85rem;
+            color: #666;
+        }
+
+        .status-value {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .metric-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            border-left: 4px solid #667eea;
+        }
+
+        .metric-icon {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .metric-label {
+            font-size: 0.85rem;
+            color: #666;
+            margin-bottom: 0.5rem;
+        }
+
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #333;
+            line-height: 1;
+        }
+
+        .metric-unit {
+            font-size: 1.2rem;
+            color: #999;
+            font-weight: 400;
+        }
+
+        .metric-subtext {
+            font-size: 0.8rem;
+            color: #667eea;
+            margin-top: 0.5rem;
+        }
+
+        .metric-comparison {
+            font-size: 0.8rem;
+            margin-top: 0.5rem;
+            padding: 0.25rem 0.5rem;
+            background: #d1fae5;
+            color: #065f46;
+            border-radius: 4px;
+            display: inline-block;
+        }
+
+        .metric-comparison.worse {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .content-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 2rem;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        .card h2 {
+            font-size: 1.3rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .visualization-placeholder {
+            background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
+            border-radius: 8px;
+            height: 400px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: rgba(255,255,255,0.6);
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+
+        .viz-controls {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: center;
+        }
+
+        .viz-btn {
+            padding: 0.5rem 1rem;
+            border: 2px solid #e5e7eb;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+
+        .viz-btn.active {
+            border-color: #667eea;
+            background: #f8f9ff;
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .data-table th {
+            text-align: left;
+            padding: 0.75rem;
+            background: #f8f9ff;
+            font-size: 0.85rem;
+            color: #666;
+            font-weight: 600;
+        }
+
+        .data-table td {
+            padding: 0.75rem;
+            border-bottom: 1px solid #e5e7eb;
+            font-size: 0.9rem;
+        }
+
+        .data-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .comparison-chart {
+            margin-top: 1rem;
+        }
+
+        .chart-bar {
+            margin-bottom: 1rem;
+        }
+
+        .chart-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .chart-bar-bg {
+            height: 30px;
+            background: #f3f4f6;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .chart-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            padding: 0 0.75rem;
+            color: white;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: width 0.5s;
+        }
+
+        .insights-list {
+            list-style: none;
+        }
+
+        .insight-item {
+            padding: 1rem;
+            background: #f8f9ff;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            border-left: 4px solid #667eea;
+        }
+
+        .insight-item.warning {
+            background: #fef3c7;
+            border-left-color: #f59e0b;
+        }
+
+        .insight-item.success {
+            background: #d1fae5;
+            border-left-color: #10b981;
+        }
+
+        .insight-title {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .insight-text {
+            font-size: 0.9rem;
+            color: #666;
+            line-height: 1.5;
+        }
+
+        @media (max-width: 1200px) {
+            .metrics-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .content-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .metrics-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="logo">⚡ AeroClass</div>
+        <ul class="nav-links">
+            <li><a href="index.html">Home</a></li>
+            <li><a href="simulator.html">Simulator</a></li>
+            <li><a href="leaderboard.html">Leaderboard</a></li>
+            <li><a href="classroom.html">My Classroom</a></li>
+        </ul>
+    </nav>
+
+    <div class="container">
+        <div class="header">
+            <div class="header-top">
+                <div class="design-title">
+                    <div class="design-icon">🏎️</div>
+                    <div class="design-info">
+                        <h1>AeroSlice v3</h1>
+                        <div class="design-meta">Simulated 5 minutes ago • Full-Scale • Aluminum</div>
+                    </div>
+                </div>
+                <div class="action-buttons">
+                    <button class="btn">📄 Export PDF</button>
+                    <button class="btn btn-secondary">🔄 Re-simulate</button>
+                    <a href="simulator.html" class="btn btn-secondary">✏️ Edit</a>
+                </div>
+            </div>
+
+            <div class="status-bar">
+                <div class="status-item">
+                    <span class="status-label">Mode:</span>
+                    <span class="status-value">Detailed Analysis</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Wind Speed:</span>
+                    <span class="status-value">100 km/h</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Reynolds Number:</span>
+                    <span class="status-value">1.2 × 10⁷</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Confidence:</span>
+                    <span class="status-value">High (94%)</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-icon">🎯</div>
+                <div class="metric-label">Drag Coefficient</div>
+                <div class="metric-value">0.247</div>
+                <div class="metric-subtext">Excellent aerodynamics</div>
+                <div class="metric-comparison">↓ 15% vs class avg</div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-icon">⚡</div>
+                <div class="metric-label">Top Speed</div>
+                <div class="metric-value">239 <span class="metric-unit">km/h</span></div>
+                <div class="metric-subtext">At 150 HP</div>
+                <div class="metric-comparison">↑ 18 km/h vs v2</div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-icon">🚀</div>
+                <div class="metric-label">0-100 km/h</div>
+                <div class="metric-value">6.2 <span class="metric-unit">sec</span></div>
+                <div class="metric-subtext">Acceleration time</div>
+                <div class="metric-comparison">↓ 0.8s vs v2</div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-icon">💨</div>
+                <div class="metric-label">Drag Force @ 100 km/h</div>
+                <div class="metric-value">340 <span class="metric-unit">N</span></div>
+                <div class="metric-subtext">Air resistance</div>
+            </div>
+        </div>
+
+        <div class="content-grid">
+            <div>
+                <div class="card">
+                    <h2>🌪️ Pressure Visualization</h2>
+                    <div class="visualization-placeholder">
+                        <div>
+                            <div style="font-size: 3rem; margin-bottom: 1rem;">🏎️</div>
+                            <p>3D Pressure Heat Map</p>
+                            <p style="font-size: 0.9rem; margin-top: 0.5rem;">Interactive visualization will render here</p>
+                        </div>
+                    </div>
+                    <div class="viz-controls">
+                        <button class="viz-btn active">Pressure Map</button>
+                        <button class="viz-btn">Streamlines</button>
+                        <button class="viz-btn">Velocity Field</button>
+                        <button class="viz-btn">Slice View</button>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top: 2rem;">
+                    <h2>📊 Material Comparison</h2>
+                    <div class="comparison-chart">
+                        <div class="chart-bar">
+                            <div class="chart-label">
+                                <span><strong>Carbon Fiber</strong> (1,247 kg)</span>
+                                <span>4.8 sec</span>
+                            </div>
+                            <div class="chart-bar-bg">
+                                <div class="chart-bar-fill" style="width: 77%;">4.8s</div>
+                            </div>
+                        </div>
+
+                        <div class="chart-bar">
+                            <div class="chart-label">
+                                <span><strong>Aluminum</strong> (1,923 kg)</span>
+                                <span>6.2 sec</span>
+                            </div>
+                            <div class="chart-bar-bg">
+                                <div class="chart-bar-fill" style="width: 100%;">6.2s</div>
+                            </div>
+                        </div>
+
+                        <div class="chart-bar">
+                            <div class="chart-label">
+                                <span><strong>Steel</strong> (6,070 kg)</span>
+                                <span>14.9 sec</span>
+                            </div>
+                            <div class="chart-bar-bg">
+                                <div class="chart-bar-fill" style="width: 240%; max-width: 100%;">14.9s</div>
+                            </div>
+                        </div>
+                    </div>
+                    <p style="margin-top: 1rem; font-size: 0.9rem; color: #666;">
+                        💡 <strong>Insight:</strong> Switching to carbon fiber would reduce 0-100 km/h time by 23% (1.4 seconds)
+                    </p>
+                </div>
+            </div>
+
+            <div>
+                <div class="card">
+                    <h2>📐 Geometric Data</h2>
+                    <table class="data-table">
+                        <tr>
+                            <th>Property</th>
+                            <th>Value</th>
+                        </tr>
+                        <tr>
+                            <td>Length</td>
+                            <td><strong>4.52 m</strong></td>
+                        </tr>
+                        <tr>
+                            <td>Width</td>
+                            <td><strong>1.83 m</strong></td>
+                        </tr>
+                        <tr>
+                            <td>Height</td>
+                            <td><strong>1.41 m</strong></td>
+                        </tr>
+                        <tr>
+                            <td>Frontal Area</td>
+                            <td><strong>2.14 m²</strong></td>
+                        </tr>
+                        <tr>
+                            <td>Volume</td>
+                            <td><strong>3.87 m³</strong></td>
+                        </tr>
+                        <tr>
+                            <td>Surface Area</td>
+                            <td><strong>28.3 m²</strong></td>
+                        </tr>
+                        <tr>
+                            <td>Mass (Aluminum)</td>
+                            <td><strong>1,923 kg</strong></td>
+                        </tr>
+                    </table>
+                </div>
+
+                <div class="card" style="margin-top: 2rem;">
+                    <h2>💡 Design Insights</h2>
+                    <ul class="insights-list">
+                        <li class="insight-item success">
+                            <div class="insight-title">✓ Excellent Front Taper</div>
+                            <div class="insight-text">
+                                Your nose design creates smooth airflow with minimal stagnation pressure. Keep this feature!
+                            </div>
+                        </li>
+
+                        <li class="insight-item warning">
+                            <div class="insight-title">⚠ Rear Wake Detected</div>
+                            <div class="insight-text">
+                                High-drag zone behind rear window. Consider extending the roofline or adding a subtle spoiler.
+                            </div>
+                        </li>
+
+                        <li class="insight-item">
+                            <div class="insight-title">💡 Wheel Well Optimization</div>
+                            <div class="insight-text">
+                                Exposed wheel wells contribute 12% of total drag. Partial covers could reduce Cd by ~0.03.
+                            </div>
+                        </li>
+
+                        <li class="insight-item success">
+                            <div class="insight-title">✓ Class Leader</div>
+                            <div class="insight-text">
+                                Your Cd of 0.247 is the best in class! 15% better than average (0.290).
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="card" style="margin-top: 2rem;">
+                    <h2>🎓 Learning Notes</h2>
+                    <textarea style="width: 100%; min-height: 150px; padding: 1rem; border: 2px solid #e5e7eb; border-radius: 8px; font-family: inherit; font-size: 0.9rem; resize: vertical;" placeholder="What did you learn from this simulation? What would you change in version 4?"></textarea>
+                    <button class="btn" style="margin-top: 1rem; width: 100%;">💾 Save Notes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
