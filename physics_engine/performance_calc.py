@@ -18,6 +18,7 @@ class PerformanceCalculator:
     
     # Material densities (kg/m³)
     MATERIALS = {
+        'foam_composite': 1600,  # Classroom Composite: carved blue foam + plastic vacuum shell & plastic hardware
         'carbon_fiber': 1750,
         'aluminum': 2700,
         'steel': 7850,
@@ -29,7 +30,8 @@ class PerformanceCalculator:
                  cd: float,
                  frontal_area: float,
                  volume: float,
-                 material: str = 'aluminum'):
+                 material: str = 'aluminum',
+                 custom_mass_kg: float = None):
         """
         Initialize performance calculator
         
@@ -38,12 +40,14 @@ class PerformanceCalculator:
             frontal_area: Frontal area in m²
             volume: Vehicle volume in m³
             material: Material name (from MATERIALS dict)
+            custom_mass_kg: Optional custom mass override in kg
         """
         self.cd = cd
         self.frontal_area = frontal_area
         self.volume = volume
         self.material = material
-        self.mass = self._calculate_mass()
+        self.custom_mass_kg = custom_mass_kg
+        self.mass = custom_mass_kg if custom_mass_kg is not None else self._calculate_mass()
         
     def _calculate_mass(self) -> float:
         """
@@ -60,6 +64,41 @@ class PerformanceCalculator:
         structural_factor = 0.12
         
         return self.volume * density * structural_factor
+
+    def _get_scaled_properties(self, length: float, scale_mode: str) -> Tuple[float, float, float]:
+        """
+        Get scaled length, frontal area, and mass for the given scale mode
+        
+        Args:
+            length: Original length of the vehicle (m)
+            scale_mode: 'miniature' or 'full_scale'
+            
+        Returns:
+            Tuple of (scaled_length, scaled_frontal_area, scaled_mass)
+        """
+        density = self.MATERIALS.get(self.material, self.MATERIALS['aluminum'])
+        structural_factor = 0.12
+        
+        if self.custom_mass_kg is not None:
+            scaled_mass = self.custom_mass_kg
+        else:
+            scaled_mass = self.volume * density * structural_factor
+            
+        if scale_mode == 'miniature':
+            return length, self.frontal_area, scaled_mass
+        elif scale_mode == 'full_scale':
+            if length >= 3.0:  # already full-scale
+                return length, self.frontal_area, scaled_mass
+            scale_factor = 4.5 / max(length, 0.01)
+            scaled_length = 4.5
+            scaled_frontal_area = self.frontal_area * (scale_factor ** 2)
+            
+            if self.custom_mass_kg is not None:
+                scaled_mass = self.custom_mass_kg * (scale_factor ** 3)
+            else:
+                scaled_mass = self.volume * (scale_factor ** 3) * density * structural_factor
+            return scaled_length, scaled_frontal_area, scaled_mass
+        return length, self.frontal_area, scaled_mass
     
     def apply_reynolds_correction(self, 
                                   velocity: float,
@@ -114,6 +153,9 @@ class PerformanceCalculator:
         Returns:
             Dictionary with top speed analysis
         """
+        # Get scaled properties
+        scaled_length, scaled_frontal_area, scaled_mass = self._get_scaled_properties(length, scale_mode)
+
         # Iterative solver to find velocity where P_engine = P_drag + P_rolling
         v_guess = 50.0  # Initial guess (m/s)
         tolerance = 0.01
@@ -122,14 +164,14 @@ class PerformanceCalculator:
         for _ in range(max_iterations):
             # Get Reynolds-corrected Cd at this velocity
             cd_corrected, reynolds = self.apply_reynolds_correction(
-                v_guess, length, scale_mode
+                v_guess, scaled_length, scale_mode
             )
             
             # Calculate drag force
-            drag_force = 0.5 * self.RHO_AIR * (v_guess ** 2) * cd_corrected * self.frontal_area
+            drag_force = 0.5 * self.RHO_AIR * (v_guess ** 2) * cd_corrected * scaled_frontal_area
             
             # Calculate rolling resistance
-            rolling_force = self.ROLLING_RESISTANCE_COEFF * self.mass * self.G
+            rolling_force = self.ROLLING_RESISTANCE_COEFF * scaled_mass * self.G
             
             # Total resistance force
             total_force = drag_force + rolling_force
@@ -188,10 +230,13 @@ class PerformanceCalculator:
         Returns:
             Dictionary with acceleration results
         """
+        # Get scaled properties
+        scaled_length, scaled_frontal_area, scaled_mass = self._get_scaled_properties(length, scale_mode)
+
         target_velocity_ms = target_velocity_kmh / 3.6
         
         # Traction limit (simplified - assume AWD with good tires)
-        max_traction_force = 0.8 * self.mass * self.G  # ~0.8g acceleration limit
+        max_traction_force = 0.8 * scaled_mass * self.G  # ~0.8g acceleration limit
         
         # Initialize
         v = 0.1  # Start at 0.1 m/s to avoid division by zero
@@ -206,16 +251,16 @@ class PerformanceCalculator:
         
         while v < target_velocity_ms and t < max_time:
             # Get Reynolds-corrected Cd
-            cd_corrected, _ = self.apply_reynolds_correction(v, length, scale_mode)
+            cd_corrected, _ = self.apply_reynolds_correction(v, scaled_length, scale_mode)
             
             # Calculate forces
             thrust_force = min(power_watts / v, max_traction_force)
-            drag_force = 0.5 * self.RHO_AIR * (v ** 2) * cd_corrected * self.frontal_area
-            rolling_force = self.ROLLING_RESISTANCE_COEFF * self.mass * self.G
+            drag_force = 0.5 * self.RHO_AIR * (v ** 2) * cd_corrected * scaled_frontal_area
+            rolling_force = self.ROLLING_RESISTANCE_COEFF * scaled_mass * self.G
             
             # Net force and acceleration
             net_force = thrust_force - drag_force - rolling_force
-            acceleration = net_force / self.mass
+            acceleration = net_force / scaled_mass
             
             # Update velocity and time
             v += acceleration * dt
@@ -280,8 +325,10 @@ class PerformanceCalculator:
                 power_watts, 100.0, length, scale_mode
             )
             
+            _, _, scaled_mass = temp_calc._get_scaled_properties(length, scale_mode)
+            
             results[material_name] = {
-                'mass_kg': temp_calc.mass,
+                'mass_kg': scaled_mass,
                 'top_speed_kmh': top_speed_data['top_speed_kmh'],
                 'acceleration_0_100_sec': accel_data.get('time_seconds'),
                 'success': accel_data['success']
@@ -320,24 +367,27 @@ class PerformanceCalculator:
             power_watts, 100.0, full_scale_length, 'full_scale'
         )
         
+        scaled_mini_length, mini_frontal_area, _ = self._get_scaled_properties(miniature_length, 'miniature')
+        scaled_full_length, full_frontal_area, _ = self._get_scaled_properties(miniature_length, 'full_scale')
+        
         return {
             'miniature': {
-                'length_m': miniature_length,
+                'length_m': scaled_mini_length,
                 'reynolds_number': mini_top_speed['reynolds_number'],
                 'cd_corrected': mini_top_speed['cd_corrected'],
                 'top_speed_kmh': mini_top_speed['top_speed_kmh'],
                 'acceleration_0_100_sec': mini_accel.get('time_seconds'),
                 'drag_force_100kmh_n': 0.5 * self.RHO_AIR * ((100/3.6)**2) * 
-                                       mini_top_speed['cd_corrected'] * self.frontal_area
+                                       mini_top_speed['cd_corrected'] * mini_frontal_area
             },
             'full_scale': {
-                'length_m': full_scale_length,
+                'length_m': scaled_full_length,
                 'reynolds_number': full_top_speed['reynolds_number'],
                 'cd_corrected': full_top_speed['cd_corrected'],
                 'top_speed_kmh': full_top_speed['top_speed_kmh'],
                 'acceleration_0_100_sec': full_accel.get('time_seconds'),
                 'drag_force_100kmh_n': 0.5 * self.RHO_AIR * ((100/3.6)**2) * 
-                                       full_top_speed['cd_corrected'] * self.frontal_area
+                                       full_top_speed['cd_corrected'] * full_frontal_area
             },
             'comparison': {
                 'cd_difference_pct': ((full_top_speed['cd_corrected'] - 
@@ -365,18 +415,26 @@ class PerformanceCalculator:
         """
         power_watts = power_hp * 745.7
         
+        scaled_length, scaled_frontal_area, scaled_mass = self._get_scaled_properties(length, scale_mode)
+        
+        if scale_mode == 'full_scale' and length < 3.0:
+            scale_factor = 4.5 / max(length, 0.01)
+            scaled_volume = self.volume * (scale_factor ** 3)
+        else:
+            scaled_volume = self.volume
+            
         top_speed = self.calculate_top_speed(power_watts, length, scale_mode)
         accel_100 = self.simulate_acceleration(power_watts, 100.0, length, scale_mode)
         accel_60 = self.simulate_acceleration(power_watts, 60.0, length, scale_mode)
         
         return {
             'vehicle_specs': {
-                'mass_kg': self.mass,
+                'mass_kg': scaled_mass,
                 'material': self.material,
                 'cd': self.cd,
-                'frontal_area_m2': self.frontal_area,
-                'volume_m3': self.volume,
-                'length_m': length,
+                'frontal_area_m2': scaled_frontal_area,
+                'volume_m3': scaled_volume,
+                'length_m': scaled_length,
                 'scale_mode': scale_mode
             },
             'powertrain': {
@@ -398,6 +456,6 @@ class PerformanceCalculator:
             'efficiency': {
                 'aero_power_pct': top_speed['power_breakdown']['aerodynamic_pct'],
                 'rolling_power_pct': top_speed['power_breakdown']['rolling_pct'],
-                'power_to_weight_ratio': power_watts / self.mass
+                'power_to_weight_ratio': power_watts / scaled_mass
             }
         }

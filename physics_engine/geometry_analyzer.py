@@ -22,70 +22,130 @@ class GeometryAnalyzer:
         self.mesh = mesh_data
         self.vertices = mesh_data.vectors.reshape(-1, 3)
         
-    def get_bounding_box(self) -> Dict[str, np.ndarray]:
-        """
-        Calculate axis-aligned bounding box
-        
-        Returns:
-            Dictionary with 'min', 'max', and 'dimensions' (L, W, H)
-        """
+        # Auto-detect units (millimeters to meters)
+        # If the largest dimension is > 5.0, we assume the CAD export is in millimeters
         min_coords = self.vertices.min(axis=0)
         max_coords = self.vertices.max(axis=0)
         dimensions = max_coords - min_coords
+        max_dim = float(np.max(dimensions))
         
+        if max_dim > 5.0:
+            # Scale coordinates by 0.001 to convert mm -> m
+            self.vertices = self.vertices * 0.001
+            self.mesh.vectors = self.mesh.vectors * 0.001
+            self.mesh.update_normals()
+        
+    def get_bounding_box(self) -> Dict[str, np.ndarray]:
+        """
+        Calculate axis-aligned bounding box with semantic axis assignment.
+
+        STL files can be exported in any axis orientation (X, Y or Z as the
+        nose-to-tail axis). Rather than blindly labelling X=length, Y=width,
+        Z=height, we sort the three raw extents and assign:
+          - length : the longest axis  (car nose-to-tail)
+          - width  : the middle axis   (car side-to-side)
+          - height : the shortest axis (car floor-to-roof)
+
+        Returns:
+            Dictionary with 'min', 'max', 'dimensions', semantic lengths,
+            axis indices, and 'flow_direction' (unit vector for frontal-area
+            projection along the car's length axis).
+        """
+        min_coords = self.vertices.min(axis=0)
+        max_coords = self.vertices.max(axis=0)
+        raw_dims = max_coords - min_coords  # [X_extent, Y_extent, Z_extent]
+
+        # Sort axes descending by size: [longest, middle, shortest]
+        sorted_indices = np.argsort(raw_dims)[::-1]
+        length_axis = int(sorted_indices[0])  # nose-to-tail
+        width_axis  = int(sorted_indices[1])  # side-to-side
+        height_axis = int(sorted_indices[2])  # floor-to-roof
+
+        # Flow direction is along the car's longest axis (nose-to-tail)
+        flow_direction = np.zeros(3)
+        flow_direction[length_axis] = 1.0
+
         return {
             'min': min_coords,
             'max': max_coords,
-            'dimensions': dimensions,
-            'length': dimensions[0],  # X-axis
-            'width': dimensions[1],   # Y-axis
-            'height': dimensions[2]   # Z-axis
+            'dimensions': raw_dims,
+            # Semantically sorted extents
+            'length': float(raw_dims[length_axis]),
+            'width':  float(raw_dims[width_axis]),
+            'height': float(raw_dims[height_axis]),
+            # Which raw axis corresponds to each semantic dimension
+            'length_axis': length_axis,
+            'width_axis':  width_axis,
+            'height_axis': height_axis,
+            # Unit vector for frontal-area projection
+            'flow_direction': flow_direction,
         }
     
-    def calculate_frontal_area(self, direction: np.ndarray = np.array([1, 0, 0])) -> float:
+    def calculate_frontal_area(self, direction: np.ndarray = None) -> float:
         """
-        Calculate frontal area using ray-casting silhouette projection
-        
+        Calculate frontal area using ray-casting silhouette projection.
+
         Args:
-            direction: Flow direction vector (default: +X axis)
-            
+            direction: Flow direction unit vector.  If None (default), the
+                       direction is auto-detected from the bounding box as the
+                       car's nose-to-tail (longest) axis, regardless of which
+                       raw XYZ axis that happens to be.
+
         Returns:
             Frontal area in square meters
         """
+        # Auto-detect flow direction from bounding box (longest axis = nose-to-tail)
+        bbox = self.get_bounding_box()
+        if direction is None:
+            direction = bbox['flow_direction'].copy()
+
         # Normalize direction vector
         direction = direction / np.linalg.norm(direction)
-        
-        # Project all triangles onto plane perpendicular to flow direction
+
+        # Project all triangles onto the plane perpendicular to flow direction
         projected_areas = []
-        
+
         for triangle in self.mesh.vectors:
             # Calculate triangle normal
             v1 = triangle[1] - triangle[0]
             v2 = triangle[2] - triangle[0]
             normal = np.cross(v1, v2)
             normal_length = np.linalg.norm(normal)
-            
+
             if normal_length < 1e-10:
                 continue  # Skip degenerate triangles
-            
+
             normal = normal / normal_length
-            
-            # Project triangle area onto perpendicular plane
-            # Area contribution = original_area * |cos(angle)|
+
+            # Area contribution = original_area * |cos(angle between normal and flow)|
             cos_angle = abs(np.dot(normal, direction))
             triangle_area = 0.5 * normal_length
             projected_area = triangle_area * cos_angle
-            
+
             projected_areas.append(projected_area)
-        
-        # Sum all projected areas (simplified approach)
+
+        # Sum all projected areas
         # Note: This overestimates due to overlaps, but acceptable for educational use
         total_area = sum(projected_areas)
-        
-        # Apply empirical correction factor for overlap (typically 0.6-0.8)
+
+        # For a closed mesh every ray enters and exits, so divide by 2 to get
+        # the actual silhouette area.
+        silhouette_area = total_area * 0.5
+
+        # Empirical correction for internal overlaps / CAD features
         correction_factor = 0.7
-        
-        return total_area * correction_factor
+        estimated_area = silhouette_area * correction_factor
+
+        # Bounding-box cap: use the two axes perpendicular to flow (width × height)
+        # These are correctly identified from the semantically sorted bbox.
+        cap_width  = bbox['width']   # side-to-side extent (not the car's length)
+        cap_height = bbox['height']  # floor-to-roof extent
+        bbox_frontal_area = cap_width * cap_height
+
+        # A realistic vehicle frontal area cannot exceed 82 % of its cross-section box.
+        max_realistic_area = bbox_frontal_area * 0.82
+
+        return min(estimated_area, max_realistic_area)
     
     def calculate_volume_voxel(self, voxel_size: float = 0.002) -> Tuple[float, float]:
         """
@@ -140,11 +200,20 @@ class GeometryAnalyzer:
         """
         try:
             hull = ConvexHull(self.vertices)
-            return hull.volume
+            raw_volume = hull.volume
         except Exception:
             # Fallback to bounding box volume if convex hull fails
             bbox = self.get_bounding_box()
-            return bbox['dimensions'].prod() * 0.5  # Rough estimate
+            raw_volume = bbox['dimensions'].prod() * 0.5  # Rough estimate
+            
+        # Capping: volume of a realistic passenger vehicle is typically 30-45% of its bounding box.
+        # Since convex hulls envelope the entire outer structure including empty glass/undercut space,
+        # they significantly overestimate real volume. We cap it to maintain realistic mass results.
+        bbox = self.get_bounding_box()
+        bbox_volume = bbox['dimensions'].prod()
+        max_realistic_volume = bbox_volume * 0.42
+        
+        return min(raw_volume, max_realistic_volume)
     
     def _is_point_inside_mesh(self, point: np.ndarray) -> bool:
         """
@@ -230,25 +299,32 @@ class GeometryAnalyzer:
     
     def get_all_properties(self) -> Dict:
         """
-        Calculate all geometric properties at once
-        
+        Calculate all geometric properties at once.
+
+        Dimensions are reported semantically (length = nose-to-tail, width =
+        side-to-side, height = floor-to-roof) regardless of which raw XYZ axis
+        the STL was exported along.
+
         Returns:
-            Dictionary with all geometric measurements
+            Dictionary with all geometric measurements.
         """
         bbox = self.get_bounding_box()
-        frontal_area = self.calculate_frontal_area()
-        
+
+        # Pass the auto-detected flow direction so frontal area is computed
+        # looking straight at the car's nose, not necessarily along +X.
+        frontal_area = self.calculate_frontal_area(direction=bbox['flow_direction'].copy())
+
         # Use fast convex hull method for volume (good enough for educational use)
         volume = self.calculate_volume_convex_hull()
-        volume_confidence = 0.85  # Convex hull typically 85% accurate
-        
+        volume_confidence = 0.85  # Convex hull typically 85 % accurate
+
         surface_area = self.calculate_surface_area()
-        
+
         return {
             'dimensions': {
-                'length': float(bbox['length']),
-                'width': float(bbox['width']),
-                'height': float(bbox['height'])
+                'length': float(bbox['length']),   # longest axis  (nose-to-tail)
+                'width':  float(bbox['width']),    # middle axis   (side-to-side)
+                'height': float(bbox['height']),   # shortest axis (floor-to-roof)
             },
             'frontal_area_m2': float(frontal_area),
             'volume_m3': float(volume),
@@ -256,6 +332,9 @@ class GeometryAnalyzer:
             'surface_area_m2': float(surface_area),
             'bounding_box': {
                 'min': bbox['min'].tolist(),
-                'max': bbox['max'].tolist()
-            }
+                'max': bbox['max'].tolist(),
+                'length_axis': int(bbox['length_axis']),
+                'width_axis':  int(bbox['width_axis']),
+                'height_axis': int(bbox['height_axis']),
+            },
         }
