@@ -31,16 +31,35 @@ pip install -r requirements.txt
 1. Go to the "Web" tab in PythonAnywhere
 2. Click "Add a new web app"
 3. Choose "Manual configuration" (not the quick install)
-4. Select "Python" for the framework (ASGI/WSGI options may vary by interface)
+4. Select "WSGI" for the framework
 5. Python version: 3.10 or higher
 6. Click "Next"
 
 ## Step 4: Configure Web App
 
-### ASGI Configuration
+### WSGI Configuration
 
-In the "Web" tab, find the "ASGI configuration" section and set:
-- **ASGI config file**: `/var/www/aeroclass_pythonanywhere_com/asgi.py`
+In the "Web" tab, find the "WSGI configuration file" section and click the link to edit it. Replace the contents with:
+
+```python
+import os
+import sys
+from pathlib import Path
+
+# Add project root to Python path
+project_root = Path(__file__).parent
+sys.path.insert(0, str(project_root))
+
+# Set environment variables for production if not set
+if not os.getenv("UPLOAD_DIR"):
+    os.environ["UPLOAD_DIR"] = str(project_root / "uploads")
+if not os.getenv("UI_PATH"):
+    os.environ["UI_PATH"] = str(project_root / "UI_test")
+
+from main import app
+```
+
+The WSGI config file path should be: `/var/www/aeroclass_pythonanywhere_com/wsgi.py`
 
 ### Virtual Environment
 
