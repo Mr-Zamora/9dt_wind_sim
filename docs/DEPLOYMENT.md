@@ -7,10 +7,11 @@ This guide explains how to deploy **AeroClass** to PythonAnywhere's free tier wi
 ## Prerequisites
 
 1. **PythonAnywhere Account:** A free-tier account (e.g., username `aeroclass`).
-2. **API Token Enabled:**
-   - Go to your PythonAnywhere **Account** page ➔ **API Token** tab.
-   - Click **Create a new API token**.
-   - *This allows the PythonAnywhere command-line tool (`pa`) to securely manage your deployment.*
+2. **API Token Generation:**
+   - Log into PythonAnywhere and navigate to: `https://www.pythonanywhere.com/user/YOUR_USERNAME/account/` (replace `YOUR_USERNAME` with your actual username).
+   - Go to the **API Token** tab.
+   - Click the button that says **Create a new API token**.
+   - *Note: After creating the token, you must open a **new Bash console** for the environment to automatically load the `$API_TOKEN` variable used by the `pa` command-line tool.*
 
 ---
 
