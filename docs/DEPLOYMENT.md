@@ -40,29 +40,29 @@ pip install -r requirements.txt
 ### ASGI Configuration
 
 In the "Web" tab, find the "ASGI configuration" section and set:
-- **ASGI config file**: `/var/www/yourusername_pythonanywhere_com/asgi.py`
+- **ASGI config file**: `/var/www/aeroclass_pythonanywhere_com/asgi.py`
 
 ### Virtual Environment
 
 Set the virtual environment path:
-- **Virtualenv**: `/var/www/yourusername_pythonanywhere_com/venv`
+- **Virtualenv**: `/var/www/aeroclass_pythonanywhere_com/venv`
 
 ### Working Directory
 
 Set the working directory:
-- **Working directory**: `/var/www/yourusername_pythonanywhere_com/9dt_wind_sim`
+- **Working directory**: `/var/www/aeroclass_pythonanywhere_com/9dt_wind_sim`
 
 ### Static Files
 
 Add static files mapping:
 - **URL directory**: `/ui/`
-- **Directory path**: `/var/www/yourusername_pythonanywhere_com/9dt_wind_sim/UI_test`
+- **Directory path**: `/var/www/aeroclass_pythonanywhere_com/9dt_wind_sim/UI_test`
 
 ### Environment Variables
 
 In the "Web" tab, scroll to "Environment variables" and add:
 ```
-CORS_ORIGINS=https://yourusername.pythonanywhere.com
+CORS_ORIGINS=https://aeroclass.pythonanywhere.com
 ```
 
 **Note**: The `asgi.py` file now automatically sets `UPLOAD_DIR` and `UI_PATH` if not provided, so you don't need to set them manually.
@@ -75,10 +75,10 @@ CORS_ORIGINS=https://yourusername.pythonanywhere.com
 
 ## Step 6: Test Deployment
 
-1. Visit your PythonAnywhere URL: `https://yourusername.pythonanywhere.com`
+1. Visit your PythonAnywhere URL: `https://aeroclass.pythonanywhere.com`
 2. You should see the AeroClass simulator interface
 3. Test uploading an STL file
-4. Check the API docs at `https://yourusername.pythonanywhere.com/api/docs`
+4. Check the API docs at `https://aeroclass.pythonanywhere.com/api/docs`
 
 ## Troubleshooting
 
@@ -88,8 +88,8 @@ CORS_ORIGINS=https://yourusername.pythonanywhere.com
 
 **Solution**: The `config.py` now automatically creates the uploads directory. If issues persist:
 ```bash
-mkdir -p /var/www/yourusername_pythonanywhere_com/9dt_wind_sim/uploads
-chmod 755 /var/www/yourusername_pythonanywhere_com/9dt_wind_sim/uploads
+mkdir -p /var/www/aeroclass_pythonanywhere_com/9dt_wind_sim/uploads
+chmod 755 /var/www/aeroclass_pythonanywhere_com/9dt_wind_sim/uploads
 ```
 
 ### Static Files Not Loading
@@ -106,7 +106,7 @@ chmod 755 /var/www/yourusername_pythonanywhere_com/9dt_wind_sim/uploads
 
 **Solution**: Update environment variables in the Web tab:
 ```
-CORS_ORIGINS=https://yourusername.pythonanywhere.com
+CORS_ORIGINS=https://aeroclass.pythonanywhere.com
 ```
 
 ### Import Errors
@@ -115,7 +115,7 @@ CORS_ORIGINS=https://yourusername.pythonanywhere.com
 
 **Solution**: In a Bash console:
 ```bash
-cd /var/www/yourusername_pythonanywhere_com/9dt_wind_sim
+cd /var/www/aeroclass_pythonanywhere_com/9dt_wind_sim
 source venv/bin/activate
 pip install -r requirements.txt
 ```
@@ -151,7 +151,7 @@ When you push changes to GitHub:
 
 1. In a Bash console on PythonAnywhere:
 ```bash
-cd /var/www/yourusername_pythonanywhere_com/9dt_wind_sim
+cd /var/www/aeroclass_pythonanywhere_com/9dt_wind_sim
 git pull
 source venv/bin/activate
 pip install -r requirements.txt
