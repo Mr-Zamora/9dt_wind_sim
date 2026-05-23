@@ -31,7 +31,7 @@ pip install -r requirements.txt
 1. Go to the "Web" tab in PythonAnywhere
 2. Click "Add a new web app"
 3. Choose "Manual configuration" (not the quick install)
-4. Select "ASGI" for the framework
+4. Select "Python" for the framework (ASGI/WSGI options may vary by interface)
 5. Python version: 3.10 or higher
 6. Click "Next"
 
