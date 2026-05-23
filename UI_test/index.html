@@ -25,6 +25,15 @@
             <div class="status-badge status-ready">Ready - Upload an STL file to begin</div>
  
             <div class="control-group">
+                <label class="control-label">Load Preset Design</label>
+                <select class="select-box" id="presetSelect">
+                    <option value="" selected>-- Select a Preset Design --</option>
+                    <option value="presets/car1.stl">car1.stl (Aerodynamic Concept)</option>
+                    <option value="presets/car2.stl">car2.stl (Pinewood Derby)</option>
+                </select>
+            </div>
+
+            <div class="control-group">
                 <label class="control-label">Upload STL File</label>
                 <button class="btn btn-secondary upload-zone" style="width: 100%; padding: 1.5rem; text-align: center; cursor: pointer; border: 2px dashed #667eea; background: white; margin-bottom: 1rem;">
                     📁 Click to Upload or Drag & Drop STL

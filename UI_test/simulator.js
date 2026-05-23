@@ -1291,6 +1291,41 @@
                 }
             });
 
+            document.getElementById('presetSelect').addEventListener('change', async (e) => {
+                const presetUrl = e.target.value;
+                if (!presetUrl) return;
+
+                if (simulationRunning) {
+                    e.target.value = "";
+                    alert('Simulation is currently running. Please wait.');
+                    return;
+                }
+
+                try {
+                    const presetName = e.target.options[e.target.selectedIndex].text.split(' ')[0];
+                    updateStatus(`Fetching preset ${presetName}...`, 'running');
+                    
+                    const response = await fetch(presetUrl);
+                    if (!response.ok) {
+                        throw new Error(`Failed to download preset file: ${response.statusText}`);
+                    }
+                    
+                    const blob = await response.blob();
+                    const file = new File([blob], presetName, { type: 'application/octet-stream' });
+                    
+                    // Trigger the file upload pipeline
+                    await handleFileUpload(file);
+                    
+                } catch (error) {
+                    console.error('Preset loading error:', error);
+                    updateStatus('Failed to load preset: ' + error.message, 'ready');
+                    alert('Failed to load preset design: ' + error.message);
+                } finally {
+                    // Reset dropdown selection
+                    e.target.value = "";
+                }
+            });
+
             // Ingest file and invoke server validations
             async function handleFileUpload(file) {
                 const formData = new FormData();
