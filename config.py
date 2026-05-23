@@ -44,16 +44,19 @@ class Settings(BaseSettings):
         return [origin.strip() for origin in self.cors_origins.split(",")]
 
     @property
-    def upload_path(self) -> Path:
-        """Get upload directory as Path object and ensure it exists"""
-        path = Path(self.upload_dir)
-        path.mkdir(parents=True, exist_ok=True)
-        return path
+    def base_dir(self) -> Path:
+        """Get project root directory"""
+        return Path(__file__).resolve().parent
 
+    @property
+    def upload_path(self) -> Path:
+        """Get upload directory as Path object"""
+        return self.base_dir / self.upload_dir
+    
     @property
     def ui_path_obj(self) -> Path:
         """Get UI directory as Path object"""
-        return Path(self.ui_path)
+        return self.base_dir / self.ui_path
 
 
 settings = Settings()
