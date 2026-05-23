@@ -1,6 +1,6 @@
 # PythonAnywhere Deployment Guide
 
-This guide explains how to deploy AeroClass to PythonAnywhere.
+This guide explains how to deploy AeroClass to PythonAnywhere (free tier).
 
 ## Prerequisites
 
@@ -26,36 +26,7 @@ pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-## Step 3: Configure Environment Variables
-
-1. Copy the example environment file:
-```bash
-cp .env.example .env
-```
-
-2. Edit `.env` with your PythonAnywhere settings:
-```bash
-nano .env
-```
-
-3. Update the following values:
-```env
-# Change CORS to your PythonAnywhere domain
-CORS_ORIGINS=https://yourusername.pythonanywhere.com
-
-# Change uploads to PythonAnywhere writable directory
-UPLOAD_DIR=/var/www/yourusername_pythonanywhere_com/uploads
-```
-
-4. Save and exit (Ctrl+X, Y, Enter)
-
-## Step 4: Create Uploads Directory
-
-```bash
-mkdir -p /var/www/yourusername_pythonanywhere_com/uploads
-```
-
-## Step 5: Create Web App
+## Step 3: Create Web App
 
 1. Go to the "Web" tab in PythonAnywhere
 2. Click "Add a new web app"
@@ -64,7 +35,7 @@ mkdir -p /var/www/yourusername_pythonanywhere_com/uploads
 5. Python version: 3.10 or higher
 6. Click "Next"
 
-## Step 6: Configure Web App
+## Step 4: Configure Web App
 
 ### ASGI Configuration
 
@@ -92,16 +63,17 @@ Add static files mapping:
 In the "Web" tab, scroll to "Environment variables" and add:
 ```
 CORS_ORIGINS=https://yourusername.pythonanywhere.com
-UPLOAD_DIR=/var/www/yourusername_pythonanywhere_com/uploads
 ```
 
-## Step 7: Reload Web App
+**Note**: The `asgi.py` file now automatically sets `UPLOAD_DIR` and `UI_PATH` if not provided, so you don't need to set them manually.
+
+## Step 5: Reload Web App
 
 1. Scroll to the top of the "Web" tab
 2. Click the big green "Reload" button
 3. Check the error logs if the reload fails
 
-## Step 8: Test Deployment
+## Step 6: Test Deployment
 
 1. Visit your PythonAnywhere URL: `https://yourusername.pythonanywhere.com`
 2. You should see the AeroClass simulator interface
@@ -114,10 +86,10 @@ UPLOAD_DIR=/var/www/yourusername_pythonanywhere_com/uploads
 
 **Problem**: Uploads directory doesn't exist or isn't writable
 
-**Solution**:
+**Solution**: The `config.py` now automatically creates the uploads directory. If issues persist:
 ```bash
-mkdir -p /var/www/yourusername_pythonanywhere_com/uploads
-chmod 755 /var/www/yourusername_pythonanywhere_com/uploads
+mkdir -p /var/www/yourusername_pythonanywhere_com/9dt_wind_sim/uploads
+chmod 755 /var/www/yourusername_pythonanywhere_com/9dt_wind_sim/uploads
 ```
 
 ### Static Files Not Loading
