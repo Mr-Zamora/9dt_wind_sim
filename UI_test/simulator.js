@@ -525,7 +525,7 @@
                 console.log('Profile stats:', { roofMax, bellyMin, sideMax, carH, carW });
 
                 // Profile extended outside car body with smooth taper (split-taper for realistic aerodynamics)
-                const TAPER_FRONT = size.x * 0.45; // Short, clean deflection near the nose
+                const TAPER_FRONT = size.x * 0.18; // Ultra-short, crisp nose split right at the bumper
                 const TAPER_REAR  = size.x * 2.2;  // Longer, gradual decay in the wake
                 
                 console.log('Creating profile functions...');
@@ -581,6 +581,7 @@
 
                         let y_geom = seedY_geom;
                         let z_out = seedZ;
+                        let x_flow = x;
 
                         if (isBelowStag) {
                             // 1. Below Bumper Flow: routes underneath the car (underbody acceleration)
@@ -590,7 +591,7 @@
                             // Add turbulent noise underneath the car
                             if (x <= xHi && x >= xLo) {
                                 const underbodyPct = (x - xLo) / Math.max(0.1, xHi - xLo);
-                                y_geom += Math.sin(x * 25.0 + seedY_geom * 50.0) * 0.015 * underbodyPct;
+                                y_geom += Math.sin(x_flow * 25.0 + seedY_geom * 50.0) * 0.015 * underbodyPct;
                             }
                         } else if (isSideDeflecting) {
                             // 2. Lateral Flow (Outer Side/Ring lines): deflects strictly laterally around car width (sZ), flat height
@@ -628,19 +629,31 @@
                             }
                         }
 
-                        // 4. Chaotic Turbulent Wake behind the car (x < xLo)
+                        // 4. Recirculating Wake Cavity (x < xLo)
                         if (x < xLo) {
                             const rearRoofHeight = lerp(roof, xLo);
-                            // Wake cavity exists below the separated shear layer behind the vehicle
                             if (seedY_geom < rearRoofHeight + 0.15) {
                                 // Taper wake intensity downwind from xLo to xEnd (-15.0)
                                 const wakeDecay = Math.max(0, (x - xEnd) / (xLo - xEnd));
-                                const amp = 0.09 * wakeDecay;
-                                const freqX = 3.5;
                                 
-                                // Coordinated swirling wave patterns (sine/cosine phase offsets)
-                                y_geom += Math.sin(x * freqX + seedY_geom * 12.0) * amp;
-                                z_out += Math.cos(x * freqX + seedY_geom * 12.0) * amp * 0.6;
+                                // A. Swirling recirculation loop (particle loops back on itself in tight circles)
+                                const swirlAngle = (xLo - x) * 2.8 + seedY_geom * 18.0;
+                                const swirlRadius = 0.22 * wakeDecay * Math.exp(-(xLo - x) / (size.x * 0.8));
+                                
+                                const x_offset = Math.cos(swirlAngle) * swirlRadius;
+                                const y_offset = Math.sin(swirlAngle) * swirlRadius;
+                                
+                                // B. Unpredictable multi-frequency chaotic noise (simulating natural fluid chaos)
+                                const w1 = Math.sin(x * 6.7 - seedY_geom * 13.3);
+                                const w2 = Math.sin(x * 12.1 + seedY_geom * 21.7) * 0.4;
+                                const w3 = Math.sin(x * 25.3 - seedY_geom * 37.9) * 0.2;
+                                const chaoticNoise = (w1 + w2 + w3) * 0.08 * wakeDecay;
+                                
+                                y_geom += y_offset + chaoticNoise;
+                                x_flow += x_offset;
+                                
+                                // Wavy lateral displacement
+                                z_out += Math.cos(swirlAngle + 1.2) * swirlRadius * 0.5;
                             }
                         }
 
@@ -668,7 +681,7 @@
                         prev_z = z_out;
 
                         const floorY = -1.0;
-                        pts.push(new THREE.Vector3(x, Math.max(y_geom + yOff, floorY + 0.01), z_out));
+                        pts.push(new THREE.Vector3(x_flow, Math.max(y_geom + yOff, floorY + 0.01), z_out));
                     }
                     
                     // Smooth the final 3D points of the path to completely eliminate high-frequency vertex-sampling aliasing noise
