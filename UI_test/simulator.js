@@ -524,22 +524,24 @@
                 const carW     = sideMax * 2;
                 console.log('Profile stats:', { roofMax, bellyMin, sideMax, carH, carW });
 
-                // Profile extended outside car body with smooth taper
-                const TAPER = size.x * 6.0;
+                // Profile extended outside car body with smooth taper (split-taper for realistic aerodynamics)
+                const TAPER_FRONT = size.x * 0.45; // Short, clean deflection near the nose
+                const TAPER_REAR  = size.x * 2.2;  // Longer, gradual decay in the wake
+                
                 console.log('Creating profile functions...');
                 const getTopAt = (x) => {
-                    if (x > xHi) { const t=Math.min(1,(x-xHi)/TAPER); return lerp(roof,xHi)*(1-t)+bellyMin*t; }
-                    if (x < xLo) { const t=Math.min(1,(xLo-x)/TAPER); return lerp(roof,xLo)*(1-t)+bellyMin*t; }
+                    if (x > xHi) { const t=Math.min(1,(x-xHi)/TAPER_FRONT); return lerp(roof,xHi)*(1-t)+bellyMin*t; }
+                    if (x < xLo) { const t=Math.min(1,(xLo-x)/TAPER_REAR); return lerp(roof,xLo)*(1-t)+bellyMin*t; }
                     return lerp(roof, x);
                 };
                 const getBotAt = (x) => {
-                    if (x > xHi) { const t=Math.min(1,(x-xHi)/TAPER); return lerp(belly,xHi)*(1-t)+bellyMin*t; }
-                    if (x < xLo) { const t=Math.min(1,(xLo-x)/TAPER); return lerp(belly,xLo)*(1-t)+bellyMin*t; }
+                    if (x > xHi) { const t=Math.min(1,(x-xHi)/TAPER_FRONT); return lerp(belly,xHi)*(1-t)+bellyMin*t; }
+                    if (x < xLo) { const t=Math.min(1,(xLo-x)/TAPER_REAR); return lerp(belly,xLo)*(1-t)+bellyMin*t; }
                     return lerp(belly, x);
                 };
                 const getSideAt = (x) => {
-                    if (x > xHi) { const t=Math.min(1,(x-xHi)/TAPER); return lerp(side,xHi)*(1-t); }
-                    if (x < xLo) { const t=Math.min(1,(xLo-x)/TAPER); return lerp(side,xLo)*(1-t); }
+                    if (x > xHi) { const t=Math.min(1,(x-xHi)/TAPER_FRONT); return lerp(side,xHi)*(1-t); }
+                    if (x < xLo) { const t=Math.min(1,(xLo-x)/TAPER_REAR); return lerp(side,xLo)*(1-t); }
                     return lerp(side, x);
                 };
 
