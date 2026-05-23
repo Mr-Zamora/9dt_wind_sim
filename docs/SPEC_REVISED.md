@@ -15,12 +15,8 @@
   - Established phased development roadmap
   
 - **Frontend UI Prototype** (HTML/CSS)
-  - 5 complete pages with inline CSS (no dependencies)
-  - `index.html` - Landing page with upload zone, recent designs, quick start guide
-  - `simulator.html` - 3-column layout with controls, 3D viewport placeholder, results panel
-  - `results.html` - Detailed metrics display, pressure visualization, material comparison
-  - `leaderboard.html` - Class rankings table with student stats
-  - `classroom.html` - Teacher dashboard with class statistics
+  - Unified interface with CSS styling
+  - `index.html` - Unified interactive simulator interface, including 3D viewport, wind speed controls, material selection, and results dashboard
   - Modern gradient UI (purple/blue theme), fully responsive
   - Interactive controls (sliders, toggles) with JavaScript value updates
   - Located in: `/UI_test/`

@@ -10,6 +10,7 @@ import uuid
 import shutil
 from datetime import datetime
 import numpy as np
+import time
 
 from models.schemas import DesignUploadResponse, ErrorResponse
 from services.physics_service import PhysicsService
@@ -37,6 +38,27 @@ UPLOAD_DIR = settings.upload_path
 UPLOAD_DIR.mkdir(exist_ok=True, parents=True)
 
 
+def purge_expired_uploads(directory_path: Path, max_age_seconds: int = 7200):
+    """
+    Deletes uploaded STL files older than max_age_seconds (default 2 hours)
+    to prevent disk quota overflow on PythonAnywhere.
+    """
+    try:
+        now = time.time()
+        purged_count = 0
+        for file in directory_path.glob("*.stl"):
+            if file.is_file():
+                file_age = now - file.stat().st_mtime
+                if file_age > max_age_seconds:
+                    file.unlink(missing_ok=True)
+                    purged_count += 1
+                    print(f"[CLEANUP] Deleted expired file: {file.name}")
+        if purged_count > 0:
+            print(f"[CLEANUP] Successfully purged {purged_count} expired files.")
+    except Exception as e:
+        print(f"[CLEANUP ERROR] Failed to purge old files: {e}")
+
+
 @router.post("/upload", response_model=DesignUploadResponse)
 async def upload_design(file: UploadFile = File(...)):
     """
@@ -48,6 +70,9 @@ async def upload_design(file: UploadFile = File(...)):
     Returns:
         Design ID and basic file info
     """
+    # Automatically clean up expired STL files to protect disk quota
+    purge_expired_uploads(UPLOAD_DIR)
+
     # Validate file extension
     if not file.filename.endswith('.stl'):
         raise HTTPException(

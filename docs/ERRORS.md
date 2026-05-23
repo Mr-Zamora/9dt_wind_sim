@@ -129,7 +129,7 @@ ValueError: [TypeError("'numpy.float32' object is not iterable"), TypeError('var
 
 **Error:** JavaScript event listeners not attaching, buttons not responding
 
-**Location:** `UI_test/simulator.html`
+**Location:** `UI_test/index.html`
 
 **Cause:** JavaScript code executed before DOM was fully loaded.
 
@@ -146,10 +146,10 @@ ValueError: [TypeError("'numpy.float32' object is not iterable"), TypeError('var
 **Error:**
 ```
 Uncaught (in promise) TypeError: Cannot read properties of null (reading 'value')
-    at HTMLButtonElement.<anonymous> (simulator.html:732:65)
+    at HTMLButtonElement.<anonymous> (index.html:732:65)
 ```
 
-**Location:** `UI_test/simulator.html`
+**Location:** `UI_test/index.html`
 
 **Cause:** JavaScript trying to access `document.getElementById('material').value` and `document.getElementById('scaleMode').value` but elements didn't have these IDs or appropriate values matching backend enums.
 
@@ -200,7 +200,7 @@ Failed to load design info: SyntaxError: Unexpected token 'I', "Internal S"... i
 Simulation failed: Cannot set properties of null (setting 'textContent')
 ```
 
-**Location:** `UI_test/simulator.html`
+**Location:** `UI_test/index.html`
 
 **Cause:** The HTML page only contained 4 metric cards, but the JavaScript `displayResults()` function expected 5 cards, indexing them from `0` to `4` (Cd, Vehicle Mass, Top Speed, Acceleration, Drag Force). Because the "Vehicle Mass" card (index 1) was entirely missing from the HTML:
 - Index 1 mapped to "Top Speed" (which has subtext, so it worked).

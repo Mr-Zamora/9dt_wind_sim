@@ -11,7 +11,7 @@
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                           Frontend (UI_test/)                           │
-│  index.html │ simulator.html │ results.html │ leaderboard │ classroom  │
+│     index.html (Unified Simulator) │ simulator.css │ simulator.js       │
 └─────────────────────────────────────────────────────────────────────────┘
                                     │ HTTP/REST
                                     ▼
@@ -70,11 +70,9 @@
 
 | Page | Purpose |
 |------|---------|
-| `index.html` | Landing page, upload zone |
-| `simulator.html` | 3-column layout: controls, 3D viewport, results |
-| `results.html` | Detailed metrics display |
-| `leaderboard.html` | Class rankings |
-| `classroom.html` | Teacher dashboard |
+| `index.html` | Unified simulator landing page: controls, 3D viewport, results |
+| `simulator.css` | Interactive prototype stylesheet |
+| `simulator.js` | Interactive 3D OrbitControls, STLLoader, and simulation logic |
 
 **Tech**: Pure HTML/CSS/JS (no framework), modern gradient UI, responsive design.
 
@@ -164,7 +162,7 @@ a = (F_thrust - F_drag - F_rolling) / mass
 
 ## Next Steps (Recommended)
 
-1. **Three.js Integration** - Add 3D STL rendering to `simulator.html`
+1. **Three.js Integration** - Add 3D STL rendering to `index.html`
 2. **Pressure heatmap visualization** - Color vertices by normal direction
 3. **Unit tests** - pytest for physics engine validation
 4. **Database** - PostgreSQL for design/user persistence
