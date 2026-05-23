@@ -33,11 +33,9 @@ Educational aerodynamics simulator for STEM classrooms. Students upload 3D vehic
 │   ├── performance_calc.py # Top speed, acceleration
 │   └── demo.py           # CLI demonstration
 ├── UI_test/              # Frontend prototype
-│   ├── index.html        # Landing page
-│   ├── simulator.html    # Main simulator
-│   ├── results.html      # Results display
-│   ├── leaderboard.html  # Class rankings
-│   └── classroom.html    # Teacher dashboard
+│   ├── index.html        # Main simulator & landing page
+│   ├── simulator.css     # Styling for simulator
+│   └── simulator.js      # Main interactive simulation logic
 ├── docs/                 # Documentation
 │   ├── SPEC.md          # Original specification
 │   ├── SPEC_REVISED.md  # Revised specification

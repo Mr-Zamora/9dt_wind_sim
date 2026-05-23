@@ -1,355 +1,365 @@
 """
 Drag Coefficient Estimator
-Quick preview mode using empirical methods and geometric feature analysis
+Computes Cd via surface pressure integration (Modified Newtonian method).
+
+Every triangle on the STL mesh contributes to drag based on how directly
+it faces the airflow.  A slanted windshield, tapered nose or boat-tailed
+rear all reduce Cd measurably, so students can iterate their design and
+see real aerodynamic improvement.
+
+Method
+------
+For each mesh triangle with outward-facing unit normal n and flow direction f:
+
+  incidence  =  max( -dot(n, f), 0 )        # 0 = parallel, 1 = head-on
+  Cp_wind    ≈  incidence²                   # Newtonian pressure coefficient
+  dCd_wind   =  Cp_wind × dA / A_ref
+
+  Leeward faces (incidence = 0) contribute a small constant wake suction.
+
+Calibration
+-----------
+A flat plate perpendicular to the flow gives Σ(cos²θ × dA) = A_frontal,
+so P_raw = 1.0.  Scaling by PRESSURE_CALIBRATION = 0.45 maps:
+  flat plate  → Cd ≈ 0.47  (real: ~1.1 for high-AR plate, ~0.45 for cars)
+  box car     → Cd ≈ 0.45–0.50
+  sedan       → Cd ≈ 0.28–0.35
+  streamlined → Cd ≈ 0.18–0.26
+
+Absolute values are approximate; changes are directionally accurate.
 """
 
 import numpy as np
-from typing import Dict
+from typing import Dict, Tuple
 from stl import mesh
 
 
 class DragEstimator:
-    """Estimate drag coefficient using simplified empirical methods"""
-    
-    # Air density at sea level, 15°C
-    RHO_AIR = 1.225  # kg/m³
-    
-    # Base drag coefficients for common shapes
-    BASE_CD_DATABASE = {
-        'streamlined': 0.25,
-        'sedan': 0.30,
-        'suv': 0.35,
-        'box': 0.45,
-        'sphere': 0.47
-    }
-    
+    """Estimate drag coefficient via surface pressure integration."""
+
+    RHO_AIR = 1.225            # kg/m³  — sea level 15 °C
+    PRESSURE_CALIBRATION = 0.38 # maps raw P=1 (flat plate) → Cd ≈ 0.38; typical car Cd 0.30–0.55
+    CD_SKIN_FRICTION = 0.025    # viscous / skin-friction contribution
+    CD_WAKE_FRACTION = 0.05     # leeward wake suction (fraction of leeward area ratio)
+
+    # ------------------------------------------------------------------ #
+    #  Construction & axis detection
+    # ------------------------------------------------------------------ #
+
     def __init__(self, mesh_data: mesh.Mesh, frontal_area: float):
         """
-        Initialize drag estimator
-        
-        Args:
-            mesh_data: numpy-stl Mesh object
-            frontal_area: Frontal area in m²
+        Parameters
+        ----------
+        mesh_data    : numpy-stl Mesh object
+        frontal_area : projected frontal area in m² (from GeometryAnalyzer)
         """
         self.mesh = mesh_data
-        self.frontal_area = frontal_area
+        self.frontal_area = max(frontal_area, 1e-9)
         self.features: Dict = {}
-        
-    def analyze_features(self) -> Dict:
+
+        vertices = mesh_data.vectors.reshape(-1, 3)
+
+        # ── Detect semantic axes (same approach as GeometryAnalyzer) ──────
+        min_c    = vertices.min(axis=0)
+        max_c    = vertices.max(axis=0)
+        raw_dims = max_c - min_c
+
+        sorted_idx         = np.argsort(raw_dims)[::-1]   # largest first
+        self._la           = int(sorted_idx[0])  # length axis (nose-to-tail)
+        self._wa           = int(sorted_idx[1])  # width  axis (side-to-side)
+        self._ha           = int(sorted_idx[2])  # height axis (floor-to-roof)
+        self._min_c        = min_c
+        self._max_c        = max_c
+        self._raw_dims     = raw_dims
+
+        # ── Detect which end is the nose ──────────────────────────────────
+        self._flow_dir     = self._detect_nose_direction(vertices)
+
+        # Mesh centroid — used to orient triangle normals outward
+        self._centroid     = vertices.mean(axis=0)
+
+    # ------------------------------------------------------------------ #
+    #  Nose detection
+    # ------------------------------------------------------------------ #
+
+    def _detect_nose_direction(self, vertices: np.ndarray) -> np.ndarray:
         """
-        Analyze geometric features that affect drag
-        
-        Returns:
-            Dictionary of feature measurements
+        Return a unit flow-direction vector pointing FROM the nose end.
+
+        Heuristic: the end with the smaller cross-sectional bounding box
+        is more likely the nose (cars taper at the front).
         """
-        vertices = self.mesh.vectors.reshape(-1, 3)
-        
-        # Get bounding box
-        min_coords = vertices.min(axis=0)
-        max_coords = vertices.max(axis=0)
-        dimensions = max_coords - min_coords
-        
-        length = dimensions[0]  # Assuming X is flow direction
-        width = dimensions[1]
-        height = dimensions[2]
-        
-        self.features = {
-            'length': length,
-            'width': width,
-            'height': height,
-            'aspect_ratio': length / max(width, 0.001),
-            'fineness_ratio': length / max(np.sqrt(width * height), 0.001),
-            'nose_radius': self._estimate_nose_radius(vertices, min_coords[0], length),
-            'rear_taper_angle': self._estimate_rear_taper(vertices, max_coords[0], length),
-            'surface_smoothness': self._estimate_surface_smoothness(),
-            'underbody_flatness': self._estimate_underbody_flatness(vertices, height)
+        la, wa, ha = self._la, self._wa, self._ha
+        L  = self._raw_dims[la]
+        lo = self._min_c[la]
+        hi = self._max_c[la]
+
+        def cross_section(mask: np.ndarray) -> float:
+            v = vertices[mask]
+            if len(v) < 3:
+                return float('inf')
+            w = float(v[:, wa].max() - v[:, wa].min())
+            h = float(v[:, ha].max() - v[:, ha].min())
+            return w * h
+
+        front_cs = cross_section(vertices[:, la] < lo + L * 0.15)
+        rear_cs  = cross_section(vertices[:, la] > hi - L * 0.15)
+
+        flow = np.zeros(3)
+        if front_cs <= rear_cs:
+            # Narrower end is at the min-length side → flow comes from -la direction
+            flow[la] = -1.0
+        else:
+            # Narrower end is at the max-length side → flow comes from +la direction
+            flow[la] = 1.0
+        return flow
+
+    # ------------------------------------------------------------------ #
+    #  Normal computation
+    # ------------------------------------------------------------------ #
+
+    def _outward_normal(self, triangle: np.ndarray) -> Tuple[np.ndarray, float]:
+        """
+        Compute the outward-pointing unit normal and area of a triangle.
+
+        Uses the centroid check: if the computed normal points toward the
+        mesh centroid, it is inward → flip it.
+        """
+        v1 = triangle[1] - triangle[0]
+        v2 = triangle[2] - triangle[0]
+        cross = np.cross(v1, v2)
+        norm_len = np.linalg.norm(cross)
+
+        if norm_len < 1e-12:
+            return np.array([0.0, 0.0, 1.0]), 0.0
+
+        area   = 0.5 * norm_len
+        normal = cross / norm_len          # unit normal (orientation unknown)
+
+        # Ensure normal points away from centroid (outward)
+        face_centre = triangle.mean(axis=0)
+        out_vec     = face_centre - self._centroid
+        dot_check   = np.dot(normal, out_vec)
+        if abs(dot_check) > 1e-9 and dot_check < 0:
+            normal = -normal
+
+        return normal, area
+
+    # ------------------------------------------------------------------ #
+    #  Core estimator — pressure integration
+    # ------------------------------------------------------------------ #
+
+    def estimate_cd_pressure_integration(self) -> Tuple[float, Dict]:
+        """
+        Compute Cd by integrating pressure over every triangle.
+
+        Returns
+        -------
+        cd        : float — estimated drag coefficient
+        breakdown : dict  — detailed per-component breakdown
+        """
+        flow = self._flow_dir    # unit vector in flow direction
+
+        windward_drag_area = 0.0   # Σ cos²θ × area  for windward faces
+        leeward_area_total = 0.0   # total area of leeward (wake) faces
+        total_area         = 0.0
+
+        for triangle in self.mesh.vectors:
+            normal, area = self._outward_normal(triangle)
+            if area < 1e-12:
+                continue
+            total_area += area
+
+            # dot(normal, flow):
+            #   negative → normal opposes flow → WINDWARD (pressure) face
+            #   positive → normal aligns with flow → LEEWARD  (wake)   face
+            cos_theta = float(np.dot(normal, flow))
+
+            if cos_theta < 0:
+                incidence           = -cos_theta              # 0 (grazing) … 1 (head-on)
+                windward_drag_area += area * (incidence ** 2) # Newtonian Cp ∝ cos²θ
+            else:
+                leeward_area_total += area
+
+        if self.frontal_area < 1e-12 or total_area < 1e-12:
+            return 0.35, {}
+
+        # Pressure drag (dominant)
+        pressure_cd = (windward_drag_area * self.PRESSURE_CALIBRATION) / self.frontal_area
+
+        # Wake / base drag (suction behind the vehicle)
+        leeward_fraction = leeward_area_total / total_area
+        wake_cd = leeward_fraction * self.CD_WAKE_FRACTION
+
+        cd = float(np.clip(pressure_cd + wake_cd + self.CD_SKIN_FRICTION, 0.10, 1.20))
+
+        breakdown = {
+            'pressure_cd':         pressure_cd,
+            'wake_cd':             wake_cd,
+            'friction_cd':         self.CD_SKIN_FRICTION,
+            'windward_drag_area':  windward_drag_area,
+            'leeward_area_total':  leeward_area_total,
+            'total_mesh_area':     total_area,
+            'leeward_fraction':    leeward_fraction,
+            'flow_direction':      flow.tolist(),
         }
-        
-        return self.features
-    
+        return cd, breakdown
+
+    # ------------------------------------------------------------------ #
+    #  Public helpers
+    # ------------------------------------------------------------------ #
+
     def estimate_cd_quick(self) -> float:
-        """
-        Quick drag coefficient estimation using geometric features
-        
-        Returns:
-            Estimated drag coefficient (Cd)
-        """
-        if not self.features:
-            self.analyze_features()
-        
-        # Start with base Cd based on overall shape
-        base_cd = self._get_base_cd()
-        
-        # Apply corrections based on features
-        cd = base_cd
-        
-        # Nose shape correction
-        nose_factor = self._nose_correction_factor()
-        cd *= nose_factor
-        
-        # Rear taper correction
-        rear_factor = self._rear_correction_factor()
-        cd *= rear_factor
-        
-        # Surface smoothness correction
-        smoothness_factor = self._smoothness_correction_factor()
-        cd *= smoothness_factor
-        
-        # Underbody correction
-        underbody_factor = self._underbody_correction_factor()
-        cd *= underbody_factor
-        
-        # Aspect ratio correction
-        aspect_factor = self._aspect_ratio_correction()
-        cd *= aspect_factor
-        
+        """Main public interface — returns estimated Cd."""
+        cd, _ = self.estimate_cd_pressure_integration()
         return cd
-    
+
     def calculate_drag_force(self, velocity: float, cd: float = None) -> float:
-        """
-        Calculate drag force at given velocity
-        
-        Args:
-            velocity: Air velocity in m/s
-            cd: Drag coefficient (if None, will estimate)
-            
-        Returns:
-            Drag force in Newtons
-        """
+        """Drag force in Newtons at given velocity (m/s)."""
         if cd is None:
             cd = self.estimate_cd_quick()
-        
-        # F_d = 0.5 * ρ * v² * Cd * A
-        drag_force = 0.5 * self.RHO_AIR * (velocity ** 2) * cd * self.frontal_area
-        
-        return drag_force
-    
-    def _get_base_cd(self) -> float:
-        """Determine base Cd from overall shape classification"""
-        fineness = self.features['fineness_ratio']
-        
-        if fineness > 4.0:
-            return self.BASE_CD_DATABASE['streamlined']
-        elif fineness > 3.0:
-            return self.BASE_CD_DATABASE['sedan']
-        elif fineness > 2.0:
-            return self.BASE_CD_DATABASE['suv']
-        else:
-            return self.BASE_CD_DATABASE['box']
-    
-    def _estimate_nose_radius(self, vertices: np.ndarray, front_x: float, length: float) -> float:
-        """
-        Estimate leading edge radius (nose bluntness)
-        
-        Args:
-            vertices: All mesh vertices
-            front_x: X-coordinate of front face
-            length: Vehicle length
-            
-        Returns:
-            Estimated nose radius in meters
-        """
-        # Get vertices near front (within 10% of length)
-        threshold = front_x + length * 0.1
-        front_vertices = vertices[vertices[:, 0] < threshold]
-        
-        if len(front_vertices) < 3:
-            return 0.1  # Default moderate radius
-        
-        # Estimate curvature from vertex distribution
-        y_range = front_vertices[:, 1].max() - front_vertices[:, 1].min()
-        z_range = front_vertices[:, 2].max() - front_vertices[:, 2].min()
-        
-        # Rough radius estimate
-        radius = (y_range + z_range) / 4.0
-        
-        return max(0.01, min(radius, 0.5))  # Clamp to reasonable range
-    
-    def _estimate_rear_taper(self, vertices: np.ndarray, rear_x: float, length: float) -> float:
-        """
-        Estimate rear taper angle (boat-tailing)
-        
-        Args:
-            vertices: All mesh vertices
-            rear_x: X-coordinate of rear face
-            length: Vehicle length
-            
-        Returns:
-            Taper angle in degrees (0 = vertical, positive = tapered)
-        """
-        # Get vertices in rear 30% of length
-        threshold = rear_x - length * 0.3
-        rear_vertices = vertices[vertices[:, 0] > threshold]
-        
-        if len(rear_vertices) < 10:
-            return 0.0  # Vertical rear
-        
-        # Analyze how cross-section changes
-        # Divide rear section into slices
-        x_slices = np.linspace(threshold, rear_x, 5)
-        areas = []
-        
-        for x in x_slices:
-            slice_verts = rear_vertices[np.abs(rear_vertices[:, 0] - x) < 0.05]
-            if len(slice_verts) > 0:
-                y_range = slice_verts[:, 1].max() - slice_verts[:, 1].min()
-                z_range = slice_verts[:, 2].max() - slice_verts[:, 2].min()
-                areas.append(y_range * z_range)
-        
-        if len(areas) < 2:
-            return 0.0
-        
-        # Calculate taper angle from area reduction
-        area_ratio = areas[-1] / max(areas[0], 0.001)
-        
-        if area_ratio < 0.7:
-            return 15.0  # Good taper
-        elif area_ratio < 0.9:
-            return 5.0   # Slight taper
-        else:
-            return 0.0   # Vertical/blunt rear
-    
-    def _estimate_surface_smoothness(self) -> float:
-        """
-        Estimate surface smoothness from triangle size variation
-        
-        Returns:
-            Smoothness score (0-1, higher is smoother)
-        """
-        areas = []
-        for triangle in self.mesh.vectors:
-            v1 = triangle[1] - triangle[0]
-            v2 = triangle[2] - triangle[0]
-            area = 0.5 * np.linalg.norm(np.cross(v1, v2))
-            areas.append(area)
-        
-        if len(areas) == 0:
-            return 0.5
-        
-        # Calculate coefficient of variation
-        mean_area = np.mean(areas)
-        std_area = np.std(areas)
-        
-        if mean_area < 1e-10:
-            return 0.5
-        
-        cv = std_area / mean_area
-        
-        # Lower CV = more uniform triangles = smoother surface
-        smoothness = 1.0 / (1.0 + cv)
-        
-        return smoothness
-    
-    def _estimate_underbody_flatness(self, vertices: np.ndarray, height: float) -> float:
-        """
-        Estimate how flat the underbody is
-        
-        Args:
-            vertices: All mesh vertices
-            height: Vehicle height
-            
-        Returns:
-            Flatness score (0-1, higher is flatter)
-        """
-        # Get bottom 20% of vertices
-        z_threshold = vertices[:, 2].min() + height * 0.2
-        bottom_verts = vertices[vertices[:, 2] < z_threshold]
-        
-        if len(bottom_verts) < 10:
-            return 0.5
-        
-        # Calculate Z-coordinate variation
-        z_std = np.std(bottom_verts[:, 2])
-        
-        # Normalize: low variation = flat
-        flatness = 1.0 - min(z_std / (height * 0.1), 1.0)
-        
-        return flatness
-    
-    def _nose_correction_factor(self) -> float:
-        """Correction factor based on nose radius"""
-        radius = self.features['nose_radius']
-        
-        # Sharp nose (small radius) = lower drag
-        # Blunt nose (large radius) = higher drag
-        if radius < 0.05:
-            return 0.95  # Sharp, good
-        elif radius < 0.15:
-            return 1.0   # Moderate
-        else:
-            return 1.1   # Blunt, bad
-    
-    def _rear_correction_factor(self) -> float:
-        """Correction factor based on rear taper"""
-        taper = self.features['rear_taper_angle']
-        
-        # Good taper reduces drag
-        if taper > 10:
-            return 0.90  # Excellent taper
-        elif taper > 3:
-            return 0.95  # Good taper
-        else:
-            return 1.05  # Blunt rear (high drag)
-    
-    def _smoothness_correction_factor(self) -> float:
-        """Correction factor based on surface smoothness"""
-        smoothness = self.features['surface_smoothness']
-        
-        # Smoother surface = lower drag
-        return 0.95 + (1.0 - smoothness) * 0.1
-    
-    def _underbody_correction_factor(self) -> float:
-        """Correction factor based on underbody flatness"""
-        flatness = self.features['underbody_flatness']
-        
-        # Flat underbody reduces drag
-        return 0.97 + (1.0 - flatness) * 0.08
-    
-    def _aspect_ratio_correction(self) -> float:
-        """Correction factor based on aspect ratio"""
-        aspect = self.features['aspect_ratio']
-        
-        # Very wide or very narrow vehicles have higher drag
-        if 2.0 < aspect < 3.5:
-            return 1.0   # Optimal
-        elif 1.5 < aspect < 4.5:
-            return 1.05  # Acceptable
-        else:
-            return 1.15  # Poor aspect ratio
-    
+        return 0.5 * self.RHO_AIR * (velocity ** 2) * cd * self.frontal_area
+
     def get_detailed_analysis(self) -> Dict:
         """
-        Get detailed drag analysis with all factors
-        
-        Returns:
-            Dictionary with Cd estimate and all correction factors
+        Full analysis returned to the router.
+        Backward-compatible: returns same top-level keys as before.
         """
         if not self.features:
             self.analyze_features()
-        
-        base_cd = self._get_base_cd()
-        
-        factors = {
-            'base_cd': base_cd,
-            'nose_factor': self._nose_correction_factor(),
-            'rear_factor': self._rear_correction_factor(),
-            'smoothness_factor': self._smoothness_correction_factor(),
-            'underbody_factor': self._underbody_correction_factor(),
-            'aspect_factor': self._aspect_ratio_correction()
-        }
-        
-        final_cd = base_cd
-        for key, value in factors.items():
-            if key != 'base_cd':
-                final_cd *= value
-        
+
+        cd, breakdown = self.estimate_cd_pressure_integration()
+
         return {
-            'estimated_cd': final_cd,
-            'factors': factors,
+            'estimated_cd': cd,
+            'factors': {
+                'pressure_cd':    breakdown.get('pressure_cd', 0.0),
+                'wake_cd':        breakdown.get('wake_cd', 0.0),
+                'friction_cd':    breakdown.get('friction_cd', 0.0),
+                'flow_direction': breakdown.get('flow_direction', []),
+            },
             'features': self.features,
             'drag_breakdown': {
-                'pressure_drag_pct': 75.0,  # Typical for vehicles
-                'skin_friction_pct': 15.0,
-                'induced_drag_pct': 10.0
-            }
+                # approximate percentages for UI display
+                'pressure_drag_pct': round(breakdown.get('pressure_cd', 0) / max(cd, 1e-6) * 100, 1),
+                'skin_friction_pct': round(breakdown.get('friction_cd', 0) / max(cd, 1e-6) * 100, 1),
+                'wake_drag_pct':     round(breakdown.get('wake_cd',     0) / max(cd, 1e-6) * 100, 1),
+            },
         }
+
+    # ------------------------------------------------------------------ #
+    #  Geometric feature analysis  (informational / breakdown display)
+    # ------------------------------------------------------------------ #
+
+    def analyze_features(self) -> Dict:
+        """
+        Extract secondary geometric features for the breakdown panel.
+        Uses the semantically correct axes (not hardcoded X = length).
+        """
+        vertices = self.mesh.vectors.reshape(-1, 3)
+        la, wa, ha = self._la, self._wa, self._ha
+
+        length = float(self._raw_dims[la])
+        width  = float(self._raw_dims[wa])
+        height = float(self._raw_dims[ha])
+
+        # Determine nose / rear positions along the length axis
+        if self._flow_dir[la] < 0:
+            nose_end = float(self._min_c[la])   # flow from min end → nose at min
+            rear_end = float(self._max_c[la])
+        else:
+            nose_end = float(self._max_c[la])   # flow from max end → nose at max
+            rear_end = float(self._min_c[la])
+
+        self.features = {
+            'length':             length,
+            'width':              width,
+            'height':             height,
+            'aspect_ratio':       length / max(width,  1e-6),
+            'fineness_ratio':     length / max(float(np.sqrt(width * height)), 1e-6),
+            'nose_radius':        self._nose_radius(vertices, nose_end, la, length),
+            'rear_taper_angle':   self._rear_taper(vertices, rear_end, la, length),
+            'surface_smoothness': self._surface_smoothness(),
+            'underbody_flatness': self._underbody_flatness(vertices, ha, height),
+            'flow_direction':     self._flow_dir.tolist(),
+        }
+        return self.features
+
+    # ── Private feature helpers ──────────────────────────────────────── #
+
+    def _nose_radius(self, vertices: np.ndarray,
+                     nose_pos: float, la: int, length: float) -> float:
+        """Estimate nose bluntness from vertex spread in the front 10 %."""
+        wa, ha = self._wa, self._ha
+        if self._flow_dir[la] < 0:
+            mask = vertices[:, la] < nose_pos + length * 0.10
+        else:
+            mask = vertices[:, la] > nose_pos - length * 0.10
+        v = vertices[mask]
+        if len(v) < 3:
+            return 0.1
+        y_r = float(v[:, wa].max() - v[:, wa].min())
+        z_r = float(v[:, ha].max() - v[:, ha].min())
+        return float(np.clip((y_r + z_r) / 4.0, 0.01, 0.5))
+
+    def _rear_taper(self, vertices: np.ndarray,
+                    rear_pos: float, la: int, length: float) -> float:
+        """Estimate boat-tail taper angle from cross-section change in rear 30 %."""
+        wa, ha = self._wa, self._ha
+        if self._flow_dir[la] < 0:
+            # rear is at max end
+            thr = rear_pos - length * 0.30
+            rear_v = vertices[vertices[:, la] > thr]
+            xs = np.linspace(thr, rear_pos, 5)
+        else:
+            # rear is at min end
+            thr = rear_pos + length * 0.30
+            rear_v = vertices[vertices[:, la] < thr]
+            xs = np.linspace(rear_pos, thr, 5)
+
+        if len(rear_v) < 10:
+            return 0.0
+
+        areas = []
+        for x in xs:
+            sv = rear_v[np.abs(rear_v[:, la] - x) < 0.05]
+            if len(sv) > 0:
+                w = float(sv[:, wa].max() - sv[:, wa].min())
+                h = float(sv[:, ha].max() - sv[:, ha].min())
+                areas.append(w * h)
+
+        if len(areas) < 2:
+            return 0.0
+
+        ratio = areas[-1] / max(areas[0], 1e-9)
+        if ratio < 0.7:
+            return 15.0
+        elif ratio < 0.9:
+            return 5.0
+        return 0.0
+
+    def _surface_smoothness(self) -> float:
+        """
+        Smoothness score (0–1).  Based on triangle-size uniformity:
+        a high-poly smooth model has uniform small triangles; a faceted
+        low-poly model has high variation.
+        """
+        areas = []
+        for tri in self.mesh.vectors:
+            v1 = tri[1] - tri[0]
+            v2 = tri[2] - tri[0]
+            areas.append(0.5 * float(np.linalg.norm(np.cross(v1, v2))))
+        if not areas or float(np.mean(areas)) < 1e-12:
+            return 0.5
+        cv = float(np.std(areas)) / float(np.mean(areas))
+        return float(1.0 / (1.0 + cv))
+
+    def _underbody_flatness(self, vertices: np.ndarray,
+                            ha: int, height: float) -> float:
+        """Flatness of the underbody (higher = flatter = better ground effect)."""
+        z_thr = float(vertices[:, ha].min()) + height * 0.20
+        bot   = vertices[vertices[:, ha] < z_thr]
+        if len(bot) < 10:
+            return 0.5
+        z_std = float(np.std(bot[:, ha]))
+        return float(1.0 - min(z_std / max(height * 0.1, 1e-6), 1.0))

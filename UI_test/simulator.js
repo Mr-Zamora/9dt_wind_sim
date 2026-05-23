@@ -1,665 +1,3 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simulator - AeroClass</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: #f5f7fa;
-            color: #333;
-        }
-
-        .navbar {
-            background: white;
-            padding: 1rem 2rem;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .logo {
-            font-size: 1.5rem;
-            font-weight: 700;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .nav-links {
-            display: flex;
-            gap: 2rem;
-            list-style: none;
-        }
-
-        .nav-links a {
-            text-decoration: none;
-            color: #333;
-            font-weight: 500;
-            transition: color 0.3s;
-        }
-
-        .nav-links a:hover {
-            color: #667eea;
-        }
-
-        .simulator-layout {
-            display: grid;
-            grid-template-columns: 300px 1fr 350px;
-            height: calc(100vh - 70px);
-            gap: 0;
-        }
-
-        .sidebar {
-            background: white;
-            padding: 1.5rem;
-            overflow-y: auto;
-            border-right: 1px solid #e5e7eb;
-        }
-
-        .sidebar h3 {
-            font-size: 1.1rem;
-            margin-bottom: 1rem;
-            color: #333;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .control-group {
-            margin-bottom: 1.5rem;
-        }
-
-        .control-label {
-            display: block;
-            font-size: 0.9rem;
-            font-weight: 600;
-            color: #555;
-            margin-bottom: 0.5rem;
-        }
-
-        .slider-container {
-            margin-bottom: 1rem;
-        }
-
-        .slider {
-            width: 100%;
-            height: 6px;
-            border-radius: 3px;
-            background: #e5e7eb;
-            outline: none;
-            -webkit-appearance: none;
-        }
-
-        .slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            cursor: pointer;
-        }
-
-        .slider::-moz-range-thumb {
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            cursor: pointer;
-            border: none;
-        }
-
-        .slider-value {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.85rem;
-            color: #666;
-            margin-top: 0.5rem;
-        }
-
-        .current-value {
-            font-weight: 600;
-            color: #667eea;
-        }
-
-        .toggle-switch {
-            position: relative;
-            display: inline-block;
-            width: 50px;
-            height: 26px;
-        }
-
-        .toggle-switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-
-        .toggle-slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: #ccc;
-            transition: 0.4s;
-            border-radius: 26px;
-        }
-
-        .toggle-slider:before {
-            position: absolute;
-            content: "";
-            height: 18px;
-            width: 18px;
-            left: 4px;
-            bottom: 4px;
-            background-color: white;
-            transition: 0.4s;
-            border-radius: 50%;
-        }
-
-        input:checked + .toggle-slider {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        }
-
-        input:checked + .toggle-slider:before {
-            transform: translateX(24px);
-        }
-
-        .select-box {
-            width: 100%;
-            padding: 0.6rem;
-            border: 2px solid #e5e7eb;
-            border-radius: 6px;
-            font-size: 0.9rem;
-            background: white;
-            cursor: pointer;
-            transition: border-color 0.2s;
-        }
-
-        .select-box:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-
-        .btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 8px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-            width: 100%;
-            margin-top: 1rem;
-        }
-
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-        }
-
-        .btn-secondary {
-            background: white;
-            color: #667eea;
-            border: 2px solid #667eea;
-        }
-
-        .viewport {
-            background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
-            position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .viewport-placeholder {
-            text-align: center;
-            color: rgba(255,255,255,0.6);
-        }
-
-        .viewport-placeholder-icon {
-            font-size: 5rem;
-            margin-bottom: 1rem;
-            opacity: 0.5;
-        }
-
-        .viewport-controls {
-            position: absolute;
-            top: 1rem;
-            left: 1rem;
-            display: flex;
-            gap: 0.5rem;
-        }
-
-        .viewport-btn {
-            background: rgba(255,255,255,0.1);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.2);
-            color: white;
-            padding: 0.5rem 1rem;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.9rem;
-            transition: background 0.2s;
-        }
-
-        .viewport-btn:hover {
-            background: rgba(255,255,255,0.2);
-        }
-
-        .viewport-btn.active {
-            background: rgba(102, 126, 234, 0.5);
-            border-color: #667eea;
-        }
-
-        .results-panel {
-            background: white;
-            padding: 1.5rem;
-            overflow-y: auto;
-            border-left: 1px solid #e5e7eb;
-        }
-
-        .results-panel h3 {
-            font-size: 1.1rem;
-            margin-bottom: 1rem;
-            color: #333;
-        }
-
-        .metric-card {
-            background: #f8f9ff;
-            border-radius: 8px;
-            padding: 1rem;
-            margin-bottom: 1rem;
-            border-left: 4px solid #667eea;
-        }
-
-        .metric-label {
-            font-size: 0.85rem;
-            color: #666;
-            margin-bottom: 0.25rem;
-        }
-
-        .metric-value {
-            font-size: 1.8rem;
-            font-weight: 700;
-            color: #333;
-        }
-
-        .metric-unit {
-            font-size: 1rem;
-            color: #999;
-            font-weight: 400;
-        }
-
-        .metric-subtext {
-            font-size: 0.8rem;
-            color: #667eea;
-            margin-top: 0.25rem;
-        }
-
-        .geometry-info {
-            background: #f8f9ff;
-            border-radius: 8px;
-            padding: 1rem;
-            margin-bottom: 1rem;
-        }
-
-        .info-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 0.5rem 0;
-            border-bottom: 1px solid #e5e7eb;
-        }
-
-        .info-row:last-child {
-            border-bottom: none;
-        }
-
-        .info-label {
-            font-size: 0.85rem;
-            color: #666;
-        }
-
-        .info-value {
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: #333;
-        }
-
-        #geom-mass-input {
-            width: 75px;
-            background: #ffffff;
-            border: 1.5px solid #d1d5db;
-            color: #111827;
-            border-radius: 6px;
-            padding: 4px 8px;
-            text-align: right;
-            font-size: 0.85rem;
-            font-weight: 600;
-            transition: all 0.2s ease;
-        }
-
-        #geom-mass-input:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.15);
-        }
-
-        #geom-mass-input:disabled {
-            background: #f3f4f6;
-            color: #9ca3af;
-            border-color: #e5e7eb;
-            cursor: not-allowed;
-        }
-
-        #geom-mass-unit {
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: #4b5563;
-        }
-
-        .status-badge {
-            display: inline-block;
-            padding: 0.25rem 0.75rem;
-            border-radius: 12px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            margin-bottom: 1rem;
-        }
-
-        .status-ready {
-            background: #d1fae5;
-            color: #065f46;
-        }
-
-        .status-running {
-            background: #fef3c7;
-            color: #92400e;
-        }
-
-        .status-complete {
-            background: #dbeafe;
-            color: #1e40af;
-        }
-
-        .progress-bar {
-            width: 100%;
-            height: 8px;
-            background: #e5e7eb;
-            border-radius: 4px;
-            overflow: hidden;
-            margin: 1rem 0;
-        }
-
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-            width: 0%;
-            transition: width 0.3s;
-        }
-
-        .tab-buttons {
-            display: flex;
-            gap: 0.5rem;
-            margin-bottom: 1rem;
-        }
-
-        .tab-btn {
-            flex: 1;
-            padding: 0.5rem;
-            border: none;
-            background: #f3f4f6;
-            color: #666;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.85rem;
-            font-weight: 600;
-            transition: all 0.2s;
-        }
-
-        .tab-btn.active {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-
-        @media (max-width: 1200px) {
-            .simulator-layout {
-                grid-template-columns: 1fr;
-                grid-template-rows: auto 1fr auto;
-            }
-
-            .sidebar, .results-panel {
-                max-height: 300px;
-            }
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-    </style>
-</head>
-<body>
-    <nav class="navbar">
-        <div class="logo">⚡ AeroClass</div>
-        <ul class="nav-links">
-            <!-- <li><a href="index.html">Home</a></li> -->
-            <!-- <li><a href="simulator.html">Simulator</a></li> -->
-            <!-- <li><a href="leaderboard.html">Leaderboard</a></li> -->
-            <!-- <li><a href="classroom.html">My Classroom</a></li> -->
-        </ul>
-    </nav>
-
-    <div class="simulator-layout">
-        <!-- Left Sidebar - Controls -->
-        <div class="sidebar">
-            <h3>⚙️ Simulation Controls</h3>
-            
-            <div class="status-badge status-ready">Ready - Upload an STL file to begin</div>
-
-            <div class="control-group">
-                <label class="control-label">Upload STL File</label>
-                <button class="btn btn-secondary upload-zone" style="width: 100%; padding: 1.5rem; text-align: center; cursor: pointer; border: 2px dashed #667eea; background: white; margin-bottom: 1rem;">
-                    📁 Click to Upload or Drag & Drop STL
-                </button>
-            </div>
-
-            <div class="control-group">
-                <label class="control-label">Wind Speed</label>
-                <div class="slider-container">
-                    <input type="range" min="0" max="150" value="100" class="slider" id="windSpeed">
-                    <div class="slider-value">
-                        <span>0 km/h</span>
-                        <span class="current-value">100 km/h</span>
-                        <span>150 km/h</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="control-group">
-                <label class="control-label">Moving Floor</label>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="toggle-moving-floor" checked>
-                    <span class="toggle-slider"></span>
-                </label>
-                <div style="font-size: 0.8rem; color: #666; margin-top: 0.5rem;">
-                    Simulates road movement under vehicle
-                </div>
-            </div>
-
-            <div class="control-group">
-                <label class="control-label">Wireframe View</label>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="toggle-wireframe">
-                    <span class="toggle-slider"></span>
-                </label>
-                <div style="font-size: 0.8rem; color: #666; margin-top: 0.5rem;">
-                    View underlying 3D mesh triangles
-                </div>
-            </div>
-
-            <div class="control-group">
-                <label class="control-label">Scale Mode</label>
-                <select class="select-box" id="scaleMode">
-                    <option value="miniature" selected>Miniature (As-Modeled)</option>
-                    <option value="full_scale">Full-Scale (1:1)</option>
-                </select>
-            </div>
-
-            <div class="control-group">
-                <label class="control-label">Material</label>
-                <select class="select-box" id="material">
-                    <option value="foam_composite" selected>Classroom Composite (Foam + Shell & Axles)</option>
-                    <option value="carbon_fiber">Carbon Fiber (1,750 kg/m³)</option>
-                    <option value="aluminum">Aluminum (2,700 kg/m³)</option>
-                    <option value="steel">Mild Steel (7,850 kg/m³)</option>
-                    <option value="abs_plastic">ABS Plastic (1,040 kg/m³)</option>
-                    <option value="balsa_wood">Balsa Wood (130 kg/m³)</option>
-                </select>
-            </div>
-
-            <div class="control-group">
-                <label class="control-label" id="enginePowerLabel">Engine Power</label>
-                <div class="slider-container">
-                    <input type="range" min="50" max="500" value="150" class="slider" id="enginePower">
-                    <div class="slider-value">
-                        <span>50 HP</span>
-                        <span class="current-value">150 HP</span>
-                        <span>500 HP</span>
-                    </div>
-                </div>
-            </div>
-
-            <button class="btn btn-primary">▶️ Run Simulation</button>
-            <button class="btn btn-secondary" id="btn-reset-params">Reset Parameters</button>
-        </div>
-
-        <!-- Center - 3D Viewport -->
-        <div class="viewport">
-            <div class="viewport-controls">
-                <button class="viewport-btn active" id="btn-3d-view">3D View</button>
-                <button class="viewport-btn" id="btn-pressure-map">Pressure Map</button>
-                <button class="viewport-btn" id="btn-streamlines">Streamlines</button>
-                <button class="viewport-btn" id="btn-slice-view">Slice View</button>
-            </div>
-
-            <!-- Model Orientation Adjustments Toolbar -->
-            <div class="viewport-controls" style="left: auto; right: 1rem; display: flex; gap: 0.5rem; z-index: 10;">
-                <button class="viewport-btn" id="btn-rot-x" style="display: none;" title="Rotate 90° around X-axis (Roll)">🔄 Roll (X)</button>
-                <button class="viewport-btn" id="btn-rot-y" style="display: none;" title="Rotate 90° around Y-axis (Yaw)">🔄 Yaw (Y)</button>
-                <button class="viewport-btn" id="btn-rot-z" style="display: none;" title="Rotate 90° around Z-axis (Pitch)">🔄 Pitch (Z)</button>
-            </div>
-
-            <!-- WebGL Canvas Mount point -->
-            <div id="canvas-container" style="width: 100%; height: 100%;"></div>
-
-            <!-- Viewport Loading Overlay -->
-            <div id="viewport-loader" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(22, 33, 62, 0.85); backdrop-filter: blur(5px); z-index: 5; flex-direction: column; align-items: center; justify-content: center; color: white;">
-                <div style="border: 4px solid rgba(255,255,255,0.1); border-top: 4px solid #667eea; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin-bottom: 1rem;"></div>
-                <div id="loader-text" style="font-size: 1rem; font-weight: 600; text-shadow: 0 2px 4px rgba(0,0,0,0.5);">Loading STL model...</div>
-            </div>
-
-            <!-- Slice Range Slider Overlay -->
-            <div id="slice-slider-container" style="display: none; position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); width: 80%; max-width: 500px; background: rgba(22, 33, 62, 0.9); backdrop-filter: blur(10px); padding: 12px 20px; border-radius: 8px; border: 1px solid rgba(102, 126, 234, 0.3); color: white; flex-direction: column; gap: 5px; z-index: 10; box-shadow: 0 4px 20px rgba(0,0,0,0.4);">
-                <div style="display: flex; justify-content: space-between; font-size: 0.8rem; font-weight: 600; opacity: 0.9;">
-                    <span>◀ Front (Nose)</span>
-                    <span>Rear (Tail) ▶</span>
-                </div>
-                <input type="range" id="slicePlaneConstant" min="-2" max="2" step="0.01" value="0" style="width: 100%; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.2); outline: none; margin: 5px 0; cursor: pointer;">
-                <div style="text-align: center; font-size: 0.8rem; font-weight: 600; color: #a3b8cc;" id="slice-value-display">Position: 0.00 m</div>
-            </div>
-        </div>
-
-        <!-- Right Sidebar - Results -->
-        <div class="results-panel">
-            <span class="status-badge status-ready">✓ Ready to Simulate</span>
-            
-            <h3>📊 Geometric Properties</h3>
-            <div class="geometry-info">
-                <div class="info-row">
-                    <span class="info-label">Length</span>
-                    <span class="info-value" id="geom-length">-- m</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Width</span>
-                    <span class="info-value" id="geom-width">-- m</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Height</span>
-                    <span class="info-value" id="geom-height">-- m</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Frontal Area</span>
-                    <span class="info-value" id="geom-frontal-area">-- m²</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Volume</span>
-                    <span class="info-value" id="geom-volume">-- m³</span>
-                </div>
-                <div class="info-row" style="align-items: center;">
-                    <span class="info-label" id="geom-mass-label">Mass (Classroom Composite)</span>
-                    <div style="display: flex; align-items: center; gap: 5px;">
-                        <input type="number" id="geom-mass-input" step="any" min="0" placeholder="--" disabled>
-                        <span id="geom-mass-unit">g</span>
-                    </div>
-                </div>
-            </div>
-
-            <h3>🎯 Predicted Results</h3>
-            <p style="font-size: 0.85rem; color: #666; margin-bottom: 1rem;">
-                Run simulation to see aerodynamic performance
-            </p>
-
-            <div class="metric-card" style="opacity: 0.5;">
-                <div class="metric-label">Drag Coefficient (Cd)</div>
-                <div class="metric-value">--</div>
-                <div class="metric-subtext">Lower is better</div>
-            </div>
-
-            <div class="metric-card" style="opacity: 0.5;">
-                <div class="metric-label">Vehicle Mass</div>
-                <div class="metric-value">-- <span class="metric-unit">kg</span></div>
-                <div class="metric-subtext">Calculated mass</div>
-            </div>
-
-            <div class="metric-card" style="opacity: 0.5;">
-                <div class="metric-label">Top Speed</div>
-                <div class="metric-value">-- <span class="metric-unit">km/h</span></div>
-                <div class="metric-subtext">At 150 HP</div>
-            </div>
-
-            <div class="metric-card" style="opacity: 0.5;">
-                <div class="metric-label">0-100 km/h</div>
-                <div class="metric-value">-- <span class="metric-unit">sec</span></div>
-                <div class="metric-subtext">Acceleration time</div>
-            </div>
-
-            <div class="metric-card" style="opacity: 0.5;">
-                <div class="metric-label">Drag Force @ 100 km/h</div>
-                <div class="metric-value">-- <span class="metric-unit">N</span></div>
-            </div>
-        </div>
-    </div>
-
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
-
-    <script>
         document.addEventListener('DOMContentLoaded', function() {
             // API Configuration
             const API_BASE = window.location.origin + '/api';
@@ -941,8 +279,9 @@
                 if (!position || !normal) return;
 
                 const colors = [];
+                const normArray = normal.array;
                 for (let i = 0; i < position.count; i++) {
-                    const nx = normal.getX(i);
+                    const nx = normArray[i * 3];
                     // Map normal x component to [0, 1] range
                     const t = (nx + 1.0) / 2.0;
                     // HSL spectrum: Hue goes from 240 (Blue/Rear Wake) to 0 (Red/Front Stagnation)
@@ -956,102 +295,440 @@
                 geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
             }
 
-            // Trace and construct organic streamlines using potential flow deflection
+            // ── Wind-tunnel streamlines ─────────────────────────────────────────
+            // Directly places each streamline point at surfaceProfile(x) + gap.
+            // No integration drift — lines are mathematically pinned to the mesh
+            // silhouette at every X step: windshield slope, flat body, rear taper
+            // -- Wind-tunnel streamlines (max-clamping / silhouette-following) ----
+            // Each streamline point is placed at:
+            //   y = max(seedY, roofProfile(x) + gap)   [above car]
+            //   y = min(seedY, bellyProfile(x) - gap)  [below car]
+            // The max/min do all the work: seeds that are lower than the car roof
+            // get lifted to ride the exact silhouette; far seeds stay undisturbed.
+            // This correctly handles ANY car shape automatically.
             function createStreamlines() {
-                // Clear old elements from the group
-                while(streamlineGroup.children.length > 0) {
+                console.log('createStreamlines called');
+                while (streamlineGroup.children.length > 0) {
                     streamlineGroup.remove(streamlineGroup.children[0]);
                 }
                 streamlineCurves = [];
                 streamlineParticles = [];
-                
-                if (!carGeometry || !carMesh) return;
-                
+                if (!carGeometry || !carMesh) {
+                    console.log('Missing carGeometry or carMesh');
+                    return;
+                }
+
+                console.log('Computing bounding box...');
                 carGeometry.computeBoundingBox();
-                const box = carGeometry.boundingBox;
-                const size = new THREE.Vector3();
-                box.getSize(size);
-                
-                const h = size.y / 2; // half-height
-                const w = size.z / 2; // half-width
-                const l = size.x / 2; // half-length
-                
-                const xStart = l + 1.0;
-                const xEnd = -l - 1.0;
-                const numSteps = 50;
-                const stepSize = (xEnd - xStart) / numSteps;
-                
-                // Seed 30 streamlines in a concentric ring distribution
-                const rings = [
-                    { r: 0.35, count: 6 },
-                    { r: 0.65, count: 10 },
-                    { r: 0.95, count: 14 }
-                ];
-                
-                rings.forEach(ring => {
-                    for (let i = 0; i < ring.count; i++) {
-                        const angle = (i / ring.count) * Math.PI * 2 + (ring.r * 0.7);
-                        
-                        // Seed points in front of the vehicle
-                        const y0 = Math.sin(angle) * ring.r * h * 1.4;
-                        const z0 = Math.cos(angle) * ring.r * w * 1.4;
-                        
-                        const points = [];
-                        
-                        // Trace downstream along X-axis
-                        for (let s = 0; s <= numSteps; s++) {
-                            const x = xStart + s * stepSize;
-                            const r0 = Math.sqrt(y0 * y0 + z0 * z0);
-                            
-                            // Deflection envelope based on distance along X-axis
-                            const sigma = l * 0.8;
-                            const D = Math.exp(-(x * x) / (2 * sigma * sigma));
-                            
-                            // Outward push around centered profile
-                            const factorY = 1.0 + (h * D) / Math.max(r0, 0.08);
-                            const factorZ = 1.0 + (w * D) / Math.max(r0, 0.08);
-                            
-                            const y = y0 * factorY;
-                            const z = z0 * factorZ;
-                            
-                            // Offset by mesh scene position so it aligns with model height
-                            const sceneY = y + carMesh.position.y;
-                            const sceneZ = z;
-                            
-                            points.push(new THREE.Vector3(x, sceneY, sceneZ));
+                const box  = carGeometry.boundingBox;
+                console.log('Bounding box:', box);
+                if (!box || !box.min || !box.max) {
+                    console.error('Invalid bounding box for car geometry');
+                    return;
+                }
+                const size = new THREE.Vector3(); box.getSize(size);
+                console.log('Box size:', size);
+
+                // -- 1. Sample mesh profiles (X=flow, Y=height, Z=width) --------
+                const N   = 200;
+                const xLo = box.min.x, xHi = box.max.x;
+                const dxP = (xHi - xLo) / N;
+                const yOff = carMesh.position.y;
+
+                const roofArr  = new Float32Array(N).fill(-Infinity);
+                const bellyArr = new Float32Array(N).fill( Infinity);
+                const sideArr  = new Float32Array(N).fill(0);
+
+                const pa = carGeometry.attributes.position;
+                console.log('Position attributes:', pa);
+                if (!pa) {
+                    console.error('No position attributes on geometry');
+                    return;
+                }
+                const ix = carGeometry.index;
+                console.log('Index:', ix);
+                const hit = (vx, vy, vz) => {
+                    const si = Math.floor((vx - xLo) / dxP);
+                    if (si < 0 || si >= N) return;
+                    if (vy > roofArr[si])           roofArr[si]  = vy;
+                    if (vy < bellyArr[si])          bellyArr[si] = vy;
+                    if (Math.abs(vz) > sideArr[si]) sideArr[si]  = Math.abs(vz);
+                };
+                console.log('Starting geometry loop, vertex count:', pa.count);
+                const posArray = pa.array;
+
+                const sampleTriangle = (ax, ay, az, bx, by, bz, cx, cy, cz) => {
+                    // 1. Hit the vertices directly
+                    hit(ax, ay, az);
+                    hit(bx, by, bz);
+                    hit(cx, cy, cz);
+
+                    // 2. Hit the three edges continuously by interpolating across spanned X slices
+                    const sampleEdge = (x0, y0, z0, x1, y1, z1) => {
+                        const xMin = Math.min(x0, x1);
+                        const xMax = Math.max(x0, x1);
+                        const siStart = Math.max(0, Math.ceil((xMin - xLo) / dxP));
+                        const siEnd = Math.min(N - 1, Math.floor((xMax - xLo) / dxP));
+
+                        const dxEdge = x1 - x0;
+                        if (Math.abs(dxEdge) > 1e-8) {
+                            for (let si = siStart; si <= siEnd; si++) {
+                                const xSlice = xLo + si * dxP;
+                                const t = (xSlice - x0) / dxEdge;
+                                const yInterp = y0 + t * (y1 - y0);
+                                const zInterp = z0 + t * (z1 - z0);
+                                hit(xSlice, yInterp, zInterp);
+                            }
                         }
+                    };
+
+                    sampleEdge(ax, ay, az, bx, by, bz);
+                    sampleEdge(bx, by, bz, cx, cy, cz);
+                    sampleEdge(cx, cy, cz, ax, ay, az);
+                };
+
+                if (ix) {
+                    console.log('Using indexed geometry');
+                    const idxArray = ix.array;
+                    const triCount = ix.count / 3;
+                    for (let i = 0; i < triCount; i++) {
+                        const k0 = idxArray[i * 3];
+                        const k1 = idxArray[i * 3 + 1];
+                        const k2 = idxArray[i * 3 + 2];
+
+                        sampleTriangle(
+                            posArray[k0 * 3], posArray[k0 * 3 + 1], posArray[k0 * 3 + 2],
+                            posArray[k1 * 3], posArray[k1 * 3 + 1], posArray[k1 * 3 + 2],
+                            posArray[k2 * 3], posArray[k2 * 3 + 1], posArray[k2 * 3 + 2]
+                        );
+                    }
+                } else {
+                    console.log('Using non-indexed geometry');
+                    const triCount = pa.count / 3;
+                    for (let i = 0; i < triCount; i++) {
+                        const k0 = i * 3;
+                        const k1 = i * 3 + 1;
+                        const k2 = i * 3 + 2;
+
+                        sampleTriangle(
+                            posArray[k0 * 3], posArray[k0 * 3 + 1], posArray[k0 * 3 + 2],
+                            posArray[k1 * 3], posArray[k1 * 3 + 1], posArray[k1 * 3 + 2],
+                            posArray[k2 * 3], posArray[k2 * 3 + 1], posArray[k2 * 3 + 2]
+                        );
+                    }
+                }
+
+                // Fill empty slices robustly using linear interpolation/extrapolation
+                console.log('Filling empty slices robustly...');
+                const fillArray = (arr, fallbackVal) => {
+                    const n = arr.length;
+                    const validIndices = [];
+                    for (let i = 0; i < n; i++) {
+                        if (isFinite(arr[i]) && arr[i] !== -Infinity && arr[i] !== Infinity) {
+                            validIndices.push(i);
+                        }
+                    }
+                    
+                    if (validIndices.length === 0) {
+                        arr.fill(fallbackVal);
+                        return;
+                    }
+                    
+                    // Constantly extrapolate the ends
+                    const firstValidIdx = validIndices[0];
+                    const firstValidVal = arr[firstValidIdx];
+                    for (let i = 0; i < firstValidIdx; i++) {
+                        arr[i] = firstValidVal;
+                    }
+                    
+                    const lastValidIdx = validIndices[validIndices.length - 1];
+                    const lastValidVal = arr[lastValidIdx];
+                    for (let i = lastValidIdx + 1; i < n; i++) {
+                        arr[i] = lastValidVal;
+                    }
+                    
+                    // Linearly interpolate intermediate gaps
+                    for (let k = 0; k < validIndices.length - 1; k++) {
+                        const leftIdx = validIndices[k];
+                        const rightIdx = validIndices[k+1];
+                        const leftVal = arr[leftIdx];
+                        const rightVal = arr[rightIdx];
                         
-                        // Create smooth curve
-                        const curve = new THREE.CatmullRomCurve3(points);
-                        streamlineCurves.push(curve);
-                        
-                        // Render line segment
-                        const geom = new THREE.BufferGeometry().setFromPoints(curve.getPoints(80));
-                        const lineMat = new THREE.LineBasicMaterial({
-                            color: 0x00d2ff,
-                            transparent: true,
-                            opacity: 0.25,
-                            blending: THREE.AdditiveBlending
-                        });
-                        const line = new THREE.Line(geom, lineMat);
-                        streamlineGroup.add(line);
-                        
-                        // Create glowing particle sphere
-                        const particleGeo = new THREE.SphereGeometry(0.02, 8, 8);
-                        const particleMat = new THREE.MeshBasicMaterial({
-                            color: 0x00f0ff,
-                            transparent: true,
-                            opacity: 0.9,
-                            blending: THREE.AdditiveBlending
-                        });
-                        const particle = new THREE.Mesh(particleGeo, particleMat);
-                        streamlineGroup.add(particle);
-                        
-                        streamlineParticles.push({
-                            mesh: particle,
-                            curve: curve,
-                            progress: Math.random() // offset starts for organic look
-                        });
+                        for (let i = leftIdx + 1; i < rightIdx; i++) {
+                            const t = (i - leftIdx) / (rightIdx - leftIdx);
+                            arr[i] = leftVal + (rightVal - leftVal) * t;
+                        }
+                    }
+                };
+
+                fillArray(roofArr, 0.0);
+                fillArray(bellyArr, 0.0);
+
+                // Interpolate sideArr gaps (where sideArr[i] === 0)
+                const validSideIndices = [];
+                for (let i = 0; i < N; i++) {
+                    if (sideArr[i] > 0) {
+                        validSideIndices.push(i);
+                    }
+                }
+                if (validSideIndices.length > 0) {
+                    const firstVal = sideArr[validSideIndices[0]];
+                    for (let i = 0; i < validSideIndices[0]; i++) sideArr[i] = firstVal;
+                    
+                    const lastVal = sideArr[validSideIndices[validSideIndices.length - 1]];
+                    for (let i = validSideIndices[validSideIndices.length - 1] + 1; i < N; i++) sideArr[i] = lastVal;
+                    
+                    for (let k = 0; k < validSideIndices.length - 1; k++) {
+                        const leftIdx = validSideIndices[k];
+                        const rightIdx = validSideIndices[k+1];
+                        const leftVal = sideArr[leftIdx];
+                        const rightVal = sideArr[rightIdx];
+                        for (let i = leftIdx + 1; i < rightIdx; i++) {
+                            const t = (i - leftIdx) / (rightIdx - leftIdx);
+                            sideArr[i] = leftVal + (rightVal - leftVal) * t;
+                        }
+                    }
+                }
+
+                // Variable-window smoothing at bounds to avoid edge jumps, creating extremely smooth, organic waves
+                console.log('Smoothing arrays...');
+                const smooth = (arr, w=10) => {
+                    const out = new Float32Array(arr);
+                    for (let i = 0; i < arr.length; i++) {
+                        const currentW = Math.min(w, i, arr.length - 1 - i);
+                        let s = 0;
+                        for (let k = -currentW; k <= currentW; k++) {
+                            s += arr[i + k];
+                        }
+                        out[i] = s / (2 * currentW + 1);
+                    }
+                    return out;
+                };
+                const roof  = smooth(roofArr,  6);
+                const belly = smooth(bellyArr, 6);
+                const side  = smooth(sideArr,  7);
+                console.log('Smoothing complete');
+
+                // -- 2. Continuous profile interpolation --------------------------
+                const lerp = (arr, xGeom) => {
+                    const t  = Math.max(0, Math.min(N - 1, (xGeom - xLo) / dxP));
+                    const i0 = Math.min(N - 2, Math.floor(t));
+                    const fraction = t - i0;
+                    return arr[i0] * (1 - fraction) + arr[i0 + 1] * fraction;
+                };
+
+                const roofMax  = Math.max(...roof);
+                const bellyMin = Math.min(...belly);
+                const sideMax  = Math.max(...side);
+                const carH     = roofMax - bellyMin;
+                const carW     = sideMax * 2;
+                console.log('Profile stats:', { roofMax, bellyMin, sideMax, carH, carW });
+
+                // Profile extended outside car body with smooth taper
+                const TAPER = size.x * 6.0;
+                console.log('Creating profile functions...');
+                const getTopAt = (x) => {
+                    if (x > xHi) { const t=Math.min(1,(x-xHi)/TAPER); return lerp(roof,xHi)*(1-t)+bellyMin*t; }
+                    if (x < xLo) { const t=Math.min(1,(xLo-x)/TAPER); return lerp(roof,xLo)*(1-t)+bellyMin*t; }
+                    return lerp(roof, x);
+                };
+                const getBotAt = (x) => {
+                    if (x > xHi) { const t=Math.min(1,(x-xHi)/TAPER); return lerp(belly,xHi)*(1-t)+bellyMin*t; }
+                    if (x < xLo) { const t=Math.min(1,(xLo-x)/TAPER); return lerp(belly,xLo)*(1-t)+bellyMin*t; }
+                    return lerp(belly, x);
+                };
+                const getSideAt = (x) => {
+                    if (x > xHi) { const t=Math.min(1,(x-xHi)/TAPER); return lerp(side,xHi)*(1-t); }
+                    if (x < xLo) { const t=Math.min(1,(xLo-x)/TAPER); return lerp(side,xLo)*(1-t); }
+                    return lerp(side, x);
+                };
+
+                // -- 3. Core tracer using max/min clamping -----------------------
+                // seedY_geom: starting height in geometry space
+                // seedZ:      starting lateral offset (0 = side-view line)
+                // The max() does all the work for above-car lines, min() for below.
+                const SURF_GAP = carH * 0.035;
+                const STEPS    = 600;
+                const xStart   = 15.0; // Pinned exactly to the front boundary of the 30x30 moving floor grid
+                const xEnd     = -15.0; // Pinned exactly to the back boundary of the 30x30 moving floor grid
+                const DX       = (xEnd - xStart) / STEPS;
+
+                const traceLine = (seedY_geom, seedZ) => {
+                    const pts = [];
+                    
+                    // Statically classify the flow regime based on seed position
+                    const isHighAbove = seedY_geom >= roofMax + SURF_GAP;
+                    const isBelowBelly = seedY_geom < bellyMin;
+                    
+                    // A streamline deflects laterally ONLY if it is seeded on the outer sides of the car width and level with the body
+                    const isSideDeflecting = Math.abs(seedZ) >= sideMax * 0.5 && !isHighAbove && !isBelowBelly;
+
+                    let prev_y = seedY_geom;
+                    let prev_z = seedZ;
+
+                    for (let s = 0; s <= STEPS; s++) {
+                        const x  = xStart + s * DX;
+                        const tY = getTopAt(x);
+                        const bY = getBotAt(x);
+                        const sZ = getSideAt(x);
+
+                        let y_geom = seedY_geom;
+                        let z_out = seedZ;
+
+                        if (isBelowBelly) {
+                            // 1. Below Belly Flow: stays under the car body
+                            y_geom = Math.min(seedY_geom, bY - SURF_GAP);
+                            z_out = seedZ;
+                        } else if (isSideDeflecting) {
+                            // 2. Lateral Flow (Outer Side/Ring lines): deflects strictly laterally around car width (sZ), flat height
+                            const absSZ = Math.abs(seedZ);
+                            if (absSZ <= sZ + SURF_GAP) {
+                                z_out = Math.sign(seedZ) * (sZ + SURF_GAP);
+                            } else {
+                                const excess = absSZ - sZ;
+                                const bump = sZ * 0.15 * Math.exp(-excess / (carW * 0.5));
+                                z_out = Math.sign(seedZ) * (absSZ + bump);
+                            }
+                            y_geom = seedY_geom;
+                        } else {
+                            // 3. Vertical Flow (Center lines, near-center lines, hood lines, and high lines):
+                            // These climb and hug the front hood, windshield, and roof vertically
+                            y_geom = Math.max(seedY_geom, tY + SURF_GAP);
+                            
+                            // Gentle lateral nudge for non-center vertical lines
+                            const absSZ = Math.abs(seedZ);
+                            if (absSZ > 0.001) {
+                                if (absSZ > sZ * 0.3) {
+                                    const excess = absSZ - sZ;
+                                    const bump = sZ * 0.05 * Math.exp(-excess / (carW * 0.6));
+                                    z_out = Math.sign(seedZ) * (absSZ + bump);
+                                }
+                            } else {
+                                z_out = 0;
+                            }
+                        }
+
+                        // Apply Flow Momentum Constraints (Aerodynamic Slope limits)
+                        if (s > 0) {
+                            const dx_abs = Math.abs(DX);
+                            
+                            // 1. Vertical descent limit: prevent air from plunging vertically into Kammbacks (max ~8.5° slope)
+                            if (y_geom < prev_y) {
+                                y_geom = Math.max(y_geom, prev_y - 0.15 * dx_abs);
+                            }
+                            
+                            // 2. Lateral return limit: prevent air from snapping inward instantly behind wheels/body (max ~14° slope)
+                            const absZ = Math.abs(z_out);
+                            const absPrevZ = Math.abs(prev_z);
+                            if (absZ < absPrevZ) {
+                                const clampedAbsZ = Math.max(absZ, absPrevZ - 0.25 * dx_abs);
+                                z_out = Math.sign(z_out || prev_z) * clampedAbsZ;
+                            }
+                        }
+                        prev_y = y_geom;
+                        prev_z = z_out;
+
+                        const floorY = -1.0;
+                        pts.push(new THREE.Vector3(x, Math.max(y_geom + yOff, floorY + 0.01), z_out));
+                    }
+                    
+                    // Smooth the final 3D points of the path to completely eliminate high-frequency vertex-sampling aliasing noise
+                    const smoothedPts = [];
+                    const w_path = 8; // moderate smoothing window size (covers 17 points)
+                    for (let i = 0; i < pts.length; i++) {
+                        const currentW = Math.min(w_path, i, pts.length - 1 - i);
+                        let sumX = 0, sumY = 0, sumZ = 0;
+                        for (let k = -currentW; k <= currentW; k++) {
+                            const p = pts[i + k];
+                            sumX += p.x;
+                            sumY += p.y;
+                            sumZ += p.z;
+                        }
+                        const count = 2 * currentW + 1;
+                        smoothedPts.push(new THREE.Vector3(sumX / count, sumY / count, sumZ / count));
+                    }
+                    
+                    return smoothedPts;
+                };
+
+                // -- 4. Seed layout ----------------------------------------------
+                // Side-view lines (z=0): seeds at increasing heights above bellyMin.
+                // Fractions 0..~1 ride the surface; fractions > 1 show far-field bump.
+                const aboveFracs = [0.0, 0.04, 0.10, 0.20, 0.33, 0.50, 0.68, 0.88, 1.10, 1.38, 1.72, 2.15];
+                const belowFracs = [0.05, 0.18, 0.38];  // below belly
+
+                const seeds = [];
+                aboveFracs.forEach((f, i) => seeds.push({
+                    y: bellyMin + f * carH, z: 0, rank: i / aboveFracs.length, isSide: true
+                }));
+                belowFracs.forEach((f, i) => seeds.push({
+                    y: bellyMin - f * carH, z: 0, rank: i / belowFracs.length * 0.5, isSide: true
+                }));
+
+                // Top-view / ring lines: pairs at various Z offsets + Y positions
+                const ringDefs = [
+                    { y: roofMax + 0.05*carH, z:  sideMax * 0.6  },
+                    { y: roofMax + 0.05*carH, z: -sideMax * 0.6  },
+                    { y: roofMax + 0.20*carH, z:  sideMax * 0.9  },
+                    { y: roofMax + 0.20*carH, z: -sideMax * 0.9  },
+                    { y: (bellyMin+roofMax)*0.5, z:  sideMax * 1.15 },
+                    { y: (bellyMin+roofMax)*0.5, z: -sideMax * 1.15 },
+                    { y: (bellyMin+roofMax)*0.5, z:  sideMax * 1.60 },
+                    { y: (bellyMin+roofMax)*0.5, z: -sideMax * 1.60 },
+                    { y: roofMax + 0.50*carH,    z:  sideMax * 0.5  },
+                    { y: roofMax + 0.50*carH,    z: -sideMax * 0.5  },
+                    // Front nose lines - low, positioned to flow under/around nose
+                    { y: bellyMin + 0.08*carH, z:  sideMax * 0.3  },
+                    { y: bellyMin + 0.08*carH, z: -sideMax * 0.3  },
+                    { y: bellyMin + 0.15*carH, z:  sideMax * 0.5  },
+                    { y: bellyMin + 0.15*carH, z: -sideMax * 0.5  },
+                    { y: bellyMin + 0.25*carH, z:  sideMax * 0.7  },
+                    { y: bellyMin + 0.25*carH, z: -sideMax * 0.7  },
+                    // Hood lines - flowing over the front hood area
+                    { y: bellyMin + 0.45*carH, z:  sideMax * 0.4  },
+                    { y: bellyMin + 0.45*carH, z: -sideMax * 0.4  },
+                    // Center spine lines - fill the middle gap in top-down view
+                    { y: bellyMin + 0.10*carH, z: 0 },
+                    { y: bellyMin + 0.20*carH, z: 0 },
+                    { y: bellyMin + 0.35*carH, z: 0 },
+                    { y: bellyMin + 0.55*carH, z: 0 },
+                    // Near-center pairs for density
+                    { y: bellyMin + 0.30*carH, z:  sideMax * 0.15 },
+                    { y: bellyMin + 0.30*carH, z: -sideMax * 0.15 },
+                ];
+                ringDefs.forEach(d => seeds.push({ y: d.y, z: d.z, rank: 0.65, isSide: false }));
+
+                // -- 5. Build Three.js geometry ----------------------------------
+                seeds.forEach((seed) => {
+                    const pts = traceLine(seed.y, seed.z);
+                    if (pts.length < 2) return;
+                    const curve = new THREE.CatmullRomCurve3(pts);
+                    streamlineCurves.push(curve);
+
+                    const opacity = THREE.MathUtils.clamp(
+                        seed.isSide ? 0.78 - seed.rank * 0.48 : 0.22,
+                        0.08, 0.78
+                    );
+                    const color = seed.isSide ? 0x00e4ff : 0x0066bb;
+                    const lGeom = new THREE.BufferGeometry().setFromPoints(curve.getPoints(450));
+                    streamlineGroup.add(new THREE.Line(lGeom, new THREE.LineBasicMaterial({
+                        color, transparent: true, opacity,
+                        blending: THREE.AdditiveBlending, depthWrite: false
+                    })));
+
+                    const speed = THREE.MathUtils.clamp(1.3 - seed.rank * 0.45, 0.75, 1.3);
+                    const pSize = THREE.MathUtils.clamp(0.030 - seed.rank * 0.016, 0.008, 0.030);
+
+                    // Create five particles per streamline with even progress offsets for dense, high-quality flow
+                    for (let pi = 0; pi < 5; pi++) {
+                        const pMesh = new THREE.Mesh(
+                            new THREE.SphereGeometry(pSize, 6, 6),
+                            new THREE.MeshBasicMaterial({ color: 0x00f5ff, transparent: true, opacity: 0.92,
+                                blending: THREE.AdditiveBlending, depthWrite: false })
+                        );
+                        streamlineGroup.add(pMesh);
+                        const progressOffset = pi / 5.0; // evenly spaced along the streamline
+                        streamlineParticles.push({ mesh: pMesh, curve, progress: (Math.random() + progressOffset) % 1.0, speed });
                     }
                 });
             }
@@ -1117,6 +794,7 @@
 
             // Manage Viewport Mode States & Transitions
             function setViewMode(mode) {
+                console.log('setViewMode called with:', mode);
                 currentViewMode = mode;
                 
                 // Update active state on buttons
@@ -1177,15 +855,13 @@
                 const windSpeedSlider = document.getElementById('windSpeed');
                 const windSpeed = windSpeedSlider ? parseFloat(windSpeedSlider.value) : 100;
                 
-                // Speed scales linearly with wind speed slider value
-                const speedFactor = (windSpeed / 100) * 0.25;
+                // Base speed scales with wind speed; each particle also has its own
+                // speed multiplier (faster near the car — Bernoulli effect visually)
+                const baseSpeed = (windSpeed / 100) * 0.22;
                 
                 streamlineParticles.forEach(p => {
-                    p.progress += speedFactor * dt;
-                    if (p.progress > 1.0) {
-                        p.progress = 0.0;
-                    }
-                    
+                    p.progress += baseSpeed * (p.speed || 1.0) * dt;
+                    if (p.progress > 1.0) p.progress = 0.0;
                     const pos = p.curve.getPointAt(p.progress);
                     p.mesh.position.copy(pos);
                 });
@@ -1891,6 +1567,4 @@
             updateStatus('Ready - Upload an STL file to begin', 'ready');
             document.querySelector('.btn-primary').disabled = true;
         });
-    </script>
-</body>
-</html>
+    
