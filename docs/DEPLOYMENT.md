@@ -1,208 +1,117 @@
-# PythonAnywhere Deployment Guide
+# PythonAnywhere Free-Tier Deployment Guide (Native ASGI)
 
-This guide explains how to deploy AeroClass to PythonAnywhere (free tier).
+This guide explains how to deploy **AeroClass** to PythonAnywhere's free tier with the **full 3D physics and aerodynamic calculations active**, while safely staying well under the 512 MB disk space quota.
+
+---
 
 ## Prerequisites
 
-- PythonAnywhere account (free or paid tier)
-- GitHub account with the AeroClass repository
+1. **PythonAnywhere Account:** A free-tier account (e.g., username `aeroclass`).
+2. **API Token Enabled:**
+   - Go to your PythonAnywhere **Account** page ➔ **API Token** tab.
+   - Click **Create a new API token**.
+   - *This allows the PythonAnywhere command-line tool (`pa`) to securely manage your deployment.*
 
-## Step 1: Clone Repository on PythonAnywhere
+---
 
-1. Log in to PythonAnywhere
-2. Go to the "Consoles" tab and start a "Bash" console
+## Step 1: Clone the Repository
+
+1. Log in to PythonAnywhere.
+2. Go to the **Consoles** tab and start a new **Bash** console.
 3. Clone your repository:
+   ```bash
+   git clone https://github.com/Mr-Zamora/9dt_wind_sim.git
+   cd 9dt_wind_sim
+   ```
+
+---
+
+## Step 2: Create a Lightweight Virtual Environment
+
+To prevent hitting the 512 MB disk space limit while keeping the full physics suite (NumPy and SciPy) active:
+
+1. **Clean up any accidental pip installer cache:**
+   ```bash
+   rm -rf ~/.cache/pip
+   ```
+2. **Create the virtualenv inheriting the pre-installed system packages:**
+   *PythonAnywhere already has NumPy and SciPy pre-installed globally. By using `--system-site-packages`, your environment reuses them instantly at zero disk space cost.*
+   ```bash
+   # Create a 3.10 virtual environment inheriting system libraries
+   python3.10 -m venv --system-site-packages venv
+   
+   # Activate the environment
+   source venv/bin/activate
+   ```
+3. **Upgrade pip and install remaining dependencies without caching:**
+   *Using `--no-cache-dir` prevents pip from downloading and keeping duplicate compressed `.whl` files on your disk.*
+   ```bash
+   # Upgrade pip cleanly
+   pip install --no-cache-dir --upgrade pip
+   
+   # Install FastAPI, Trimesh, a2wsgi, and others
+   pip install --no-cache-dir -r requirements.txt
+   ```
+
+---
+
+## Step 3: Delete Incompatible WSGI Setup (If applicable)
+
+> [!IMPORTANT]
+> **Why we do not use the standard WSGI Web App Tab:**
+> PythonAnywhere disables Python threading GIL-switching in standard WSGI web applications. Frameworks like FastAPI wrapped with `a2wsgi` rely on a background event-loop thread. If deployed as a WSGI app, the background thread **never runs**, resulting in an infinite deadlock and a `499` (Client Closed Connection) timeout from Nginx.
+
+If you already created a standard WSGI app on your domain, delete it from your terminal:
 ```bash
-git clone https://github.com/Mr-Zamora/9dt_wind_sim.git
-cd 9dt_wind_sim
+pa webapp delete --domain 'yourusername.pythonanywhere.com'
 ```
 
-## Step 2: Create Virtual Environment
+---
+
+## Step 4: Create a Native ASGI Web Application
+
+Deploy FastAPI natively using PythonAnywhere's experimental ASGI support. This runs Uvicorn directly on the main thread, bypassing all threading deadlocks!
+
+Run this in your **new Bash console** (where your newly created API token is automatically active):
 
 ```bash
-python3 -m venv /home/aeroclass/venv
-source /home/aeroclass/venv/bin/activate
-pip install --upgrade pip
-pip install -r requirements-pythonanywhere.txt
+pa website create --domain 'yourusername.pythonanywhere.com' --command '/home/yourusername/9dt_wind_sim/venv/bin/uvicorn --app-dir /home/yourusername/9dt_wind_sim --uds ${DOMAIN_SOCKET} main:app'
 ```
 
-**Note**: The `requirements-pythonanywhere.txt` file excludes heavy physics packages (numpy, scipy) due to PythonAnywhere free tier disk quota limitations. The web app will run but aerodynamic calculations will be disabled.
+*Replace `yourusername` with your actual PythonAnywhere username.*
 
-## Step 3: Create Web App
+### Note on Path Integrity
+All configurations in `config.py` resolve **absolutely** relative to the project root directory. Uvicorn will automatically find the `UI_test` folder, serving the simulator static assets under the `/ui` path with no additional configuration required.
 
-1. Go to the "Web" tab in PythonAnywhere
-2. Click "Add a new web app"
-3. Choose "Manual configuration" (not the quick install)
-4. Select "WSGI" for the framework
-5. Python version: 3.10 or higher
-6. Click "Next"
+---
 
-## Step 4: Configure Web App
+## Step 5: Test and Verify
 
-### Source Code
+1. Open your browser and navigate to `https://yourusername.pythonanywhere.com/`.
+2. You will be automatically redirected to `https://yourusername.pythonanywhere.com/ui/index.html`.
+3. The interactive **3D Aerodynamic Simulator** will load. Try uploading an `.stl` design to verify the calculation engine and streamline visualizations.
 
-Set the source code path:
-- **Source code**: `/home/aeroclass/9dt_wind_sim`
+---
 
-### Working Directory
+## Maintenance & Updates
 
-Set the working directory:
-- **Working directory**: `/home/aeroclass/9dt_wind_sim`
-
-### WSGI Configuration
-
-In the "Web" tab, find the "WSGI configuration file" section and click the link to edit it. Replace the contents with:
-
-```python
-import os
-import sys
-from pathlib import Path
-
-# Add project root to Python path
-project_root = Path(__file__).parent
-sys.path.insert(0, str(project_root))
-
-# Set environment variables for production if not set
-if not os.getenv("UPLOAD_DIR"):
-    os.environ["UPLOAD_DIR"] = str(project_root / "uploads")
-if not os.getenv("UI_PATH"):
-    os.environ["UI_PATH"] = str(project_root / "UI_test")
-
-from main import app
-```
-
-The WSGI config file path should be: `/var/www/aeroclass_pythonanywhere_com_wsgi.py`
-
-### Virtual Environment
-
-Set the virtual environment path:
-- **Virtualenv**: `/home/aeroclass/venv`
-
-### Static Files
-
-Add static files mapping:
-- **URL directory**: `/ui/`
-- **Directory path**: `/home/aeroclass/9dt_wind_sim/UI_test`
-
-### Environment Variables
-
-In the "Web" tab, scroll to "Environment variables" and add:
-```
-CORS_ORIGINS=https://aeroclass.pythonanywhere.com
-```
-
-**Note**: The `wsgi.py` file automatically sets `UPLOAD_DIR` and `UI_PATH` if not provided, so you don't need to set them manually.
-
-## Step 5: Reload Web App
-
-1. Scroll to the top of the "Web" tab
-2. Click the big green "Reload" button
-3. Check the error logs if the reload fails
-
-## Step 6: Test Deployment
-
-1. Visit your PythonAnywhere URL: `https://aeroclass.pythonanywhere.com`
-2. You should see the AeroClass simulator interface
-3. Test uploading an STL file
-4. Check the API docs at `https://aeroclass.pythonanywhere.com/api/docs`
-
-## Troubleshooting
-
-### 500 Error on Upload
-
-**Problem**: Uploads directory doesn't exist or isn't writable
-
-**Solution**: The `config.py` now automatically creates the uploads directory. If issues persist:
+### How to Pull Code Updates
+When you push new changes to GitHub, run the following in your PythonAnywhere Bash console:
 ```bash
-mkdir -p /home/aeroclass/9dt_wind_sim/uploads
-chmod 755 /home/aeroclass/9dt_wind_sim/uploads
-```
+# Navigate to project folder
+cd ~/9dt_wind_sim
 
-### Static Files Not Loading
-
-**Problem**: Static files mapping is incorrect
-
-**Solution**: Check the "Static files" section in the Web tab and ensure:
-- URL directory: `/ui/`
-- Directory path points to the correct `UI_test` folder
-
-### CORS Errors
-
-**Problem**: CORS origins not set correctly
-
-**Solution**: Update environment variables in the Web tab:
-```
-CORS_ORIGINS=https://aeroclass.pythonanywhere.com
-```
-
-### Import Errors
-
-**Problem**: Dependencies not installed
-
-**Solution**: In a Bash console:
-```bash
-cd /home/aeroclass/9dt_wind_sim
-source /home/aeroclass/venv/bin/activate
-pip install -r requirements.txt
-```
-
-### Application Won't Start
-
-**Problem**: Check the error logs in the Web tab
-
-**Common issues**:
-- Missing `wsgi.py` file
-- Incorrect working directory
-- Virtual environment path wrong
-- Dependencies not installed
-
-## Limitations
-
-**Current deployment limitations:**
-- File storage is temporary (uploads lost on redeploy)
-- No database (designs lost on restart)
-- No authentication (public access)
-- No persistent storage
-
-**For production use**, consider:
-- Add PostgreSQL database for persistence
-- Use cloud storage (S3/Blob) for STL files
-- Add authentication (Auth0/Firebase)
-- Set up proper logging and monitoring
-- Use a paid PythonAnywhere tier for better performance
-
-## Updating the Application
-
-When you push changes to GitHub:
-
-1. In a Bash console on PythonAnywhere:
-```bash
-cd /home/aeroclass/9dt_wind_sim
+# Pull latest commits
 git pull
-source /home/aeroclass/venv/bin/activate
-pip install -r requirements.txt
+
+# Reload website to apply changes
+pa website reload --domain 'yourusername.pythonanywhere.com'
 ```
 
-2. Go to the "Web" tab and click "Reload"
+### Self-Cleaning Uploads Directory
+The server is equipped with a self-healing **request-time uploads cleanup utility**. Every time an STL file is uploaded, the server automatically sweeps the `uploads/` folder and deletes any `.stl` files older than **2 hours**. No manual server maintenance or cron jobs are required to protect your 512 MB disk space!
 
-## Monitoring
-
-Check the following regularly:
-- **Error logs**: In the Web tab, scroll to "Log files"
-- **System resources**: In the "Tasks" tab
-- **Disk usage**: In the "Files" tab
-
-## Security Notes
-
-- The `.env` file should never be committed to Git
-- Use HTTPS only (PythonAnywhere provides this by default)
-- Consider adding rate limiting for API endpoints
-- Add authentication before deploying to production
-
-## Support
-
-For issues specific to PythonAnywhere, check:
-- [PythonAnywhere documentation](https://help.pythonanywhere.com/)
-- [PythonAnywhere forums](https://www.pythonanywhere.com/forums/)
-
-For AeroClass-specific issues, open an issue on GitHub.
+### Log Locations
+If you need to debug or check server statistics:
+* **Server log:** `/var/log/yourusername.pythonanywhere.com.server.log`
+* **Access log:** `/var/log/yourusername.pythonanywhere.com.access.log`
