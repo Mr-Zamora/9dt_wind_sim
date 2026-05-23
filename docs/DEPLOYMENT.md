@@ -23,8 +23,10 @@ cd 9dt_wind_sim
 python3 -m venv /home/aeroclass/venv
 source /home/aeroclass/venv/bin/activate
 pip install --upgrade pip
-pip install -r requirements.txt
+pip install -r requirements-pythonanywhere.txt
 ```
+
+**Note**: The `requirements-pythonanywhere.txt` file excludes heavy physics packages (numpy, scipy) due to PythonAnywhere free tier disk quota limitations. The web app will run but aerodynamic calculations will be disabled.
 
 ## Step 3: Create Web App
 

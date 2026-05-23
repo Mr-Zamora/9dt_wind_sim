@@ -1,0 +1,10 @@
+# Minimal requirements for PythonAnywhere free tier deployment
+# Excludes heavy physics packages (numpy, scipy) due to disk quota limitations
+# Web app will run but aerodynamic calculations will be disabled
+
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+python-multipart>=0.0.6
+pydantic>=2.4.0
+pydantic-settings>=2.0.0
+python-dotenv>=1.0.0
