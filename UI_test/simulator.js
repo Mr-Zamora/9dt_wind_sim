@@ -531,7 +531,11 @@
                 console.log('Creating profile functions...');
                 const getTopAt = (x) => {
                     if (x > xHi) { const t=Math.min(1,(x-xHi)/TAPER_FRONT); return lerp(roof,xHi)*(1-t)+bellyMin*t; }
-                    if (x < xLo) { const t=Math.min(1,(xLo-x)/TAPER_REAR); return lerp(roof,xLo)*(1-t)+bellyMin*t; }
+                    if (x < xLo) { 
+                        // Flow separation! Shear layer stays high and decays very slowly downwind
+                        const t=Math.min(1,(xLo-x)/(size.x * 2.8)); 
+                        return lerp(roof,xLo)*(0.85 + 0.15*(1-t)) + bellyMin*0.15*t; 
+                    }
                     return lerp(roof, x);
                 };
                 const getBotAt = (x) => {
@@ -558,12 +562,13 @@
                 const traceLine = (seedY_geom, seedZ) => {
                     const pts = [];
                     
-                    // Statically classify the flow regime based on seed position
+                    // Stagnation point split at the front bumper (approx 12% of car height)
+                    const yStag = bellyMin + 0.12 * carH;
+                    const isBelowStag = seedY_geom < yStag;
                     const isHighAbove = seedY_geom >= roofMax + SURF_GAP;
-                    const isBelowBelly = seedY_geom < bellyMin;
                     
                     // A streamline deflects laterally ONLY if it is seeded on the outer sides of the car width and level with the body
-                    const isSideDeflecting = Math.abs(seedZ) >= sideMax * 0.5 && !isHighAbove && !isBelowBelly;
+                    const isSideDeflecting = Math.abs(seedZ) >= sideMax * 0.5 && !isHighAbove && !isBelowStag;
 
                     let prev_y = seedY_geom;
                     let prev_z = seedZ;
@@ -577,10 +582,16 @@
                         let y_geom = seedY_geom;
                         let z_out = seedZ;
 
-                        if (isBelowBelly) {
-                            // 1. Below Belly Flow: stays under the car body
+                        if (isBelowStag) {
+                            // 1. Below Bumper Flow: routes underneath the car (underbody acceleration)
                             y_geom = Math.min(seedY_geom, bY - SURF_GAP);
                             z_out = seedZ;
+                            
+                            // Add turbulent noise underneath the car
+                            if (x <= xHi && x >= xLo) {
+                                const underbodyPct = (x - xLo) / Math.max(0.1, xHi - xLo);
+                                y_geom += Math.sin(x * 25.0 + seedY_geom * 50.0) * 0.015 * underbodyPct;
+                            }
                         } else if (isSideDeflecting) {
                             // 2. Lateral Flow (Outer Side/Ring lines): deflects strictly laterally around car width (sZ), flat height
                             const absSZ = Math.abs(seedZ);
@@ -593,6 +604,9 @@
                             }
                             y_geom = seedY_geom;
                         } else {
+                            // 3. Vertical Flow (Center lines, near-center lines, hood lines, and high lines):
+                            // Climb and hug the front hood, windshield, and roof vertically
+                            
                             // Exponential deflection decay to stack streamlines beautifully and prevent them merging
                             const obstacleHeight = Math.max(0, tY - bellyMin);
                             const heightAboveBelly = Math.max(0, seedY_geom - bellyMin);
@@ -614,16 +628,35 @@
                             }
                         }
 
-                        // Apply Flow Momentum Constraints (Aerodynamic Slope limits)
+                        // 4. Chaotic Turbulent Wake behind the car (x < xLo)
+                        if (x < xLo) {
+                            const rearRoofHeight = lerp(roof, xLo);
+                            // Wake cavity exists below the separated shear layer behind the vehicle
+                            if (seedY_geom < rearRoofHeight + 0.15) {
+                                // Taper wake intensity downwind from xLo to xEnd (-15.0)
+                                const wakeDecay = Math.max(0, (x - xEnd) / (xLo - xEnd));
+                                const amp = 0.09 * wakeDecay;
+                                const freqX = 3.5;
+                                
+                                // Coordinated swirling wave patterns (sine/cosine phase offsets)
+                                y_geom += Math.sin(x * freqX + seedY_geom * 12.0) * amp;
+                                z_out += Math.cos(x * freqX + seedY_geom * 12.0) * amp * 0.6;
+                            }
+                        }
+
+                        // Apply Flow Momentum Constraints (Aerodynamic Slope limits in clean air)
                         if (s > 0) {
                             const dx_abs = Math.abs(DX);
                             
-                            // 1. Vertical descent limit: prevent air from plunging vertically into Kammbacks (max ~8.5° slope)
-                            if (y_geom < prev_y) {
-                                y_geom = Math.max(y_geom, prev_y - 0.15 * dx_abs);
+                            // Apply separation behavior (don't force down into Kammbacks/sharp rear drops)
+                            if (x >= xLo) {
+                                // Vertical descent limit inside the vehicle boundaries (max ~8.5° slope)
+                                if (y_geom < prev_y) {
+                                    y_geom = Math.max(y_geom, prev_y - 0.15 * dx_abs);
+                                }
                             }
                             
-                            // 2. Lateral return limit: prevent air from snapping inward instantly behind wheels/body (max ~14° slope)
+                            // Lateral return limit: prevent air from snapping inward instantly behind wheels/body (max ~14° slope)
                             const absZ = Math.abs(z_out);
                             const absPrevZ = Math.abs(prev_z);
                             if (absZ < absPrevZ) {
