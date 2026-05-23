@@ -107,6 +107,7 @@ async def upload_design(file: UploadFile = File(...)):
         
         # Cache the analysis results as JSON to prevent redundant CPU load on retrieval
         analysis_native = convert_numpy_types(analysis)
+        analysis_native.pop('mesh_data', None)
         json_path = UPLOAD_DIR / f"{design_id}.json"
         with json_path.open("w") as f:
             json.dump(analysis_native, f)
@@ -165,6 +166,7 @@ async def get_design(design_id: str):
             # Fallback if cached JSON is missing
             analysis = PhysicsService.analyze_stl(str(file_path))
             analysis = convert_numpy_types(analysis)
+            analysis.pop('mesh_data', None)
             # Re-cache it
             with json_path.open("w") as f:
                 json.dump(analysis, f)
