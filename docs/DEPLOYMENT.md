@@ -20,8 +20,8 @@ cd 9dt_wind_sim
 ## Step 2: Create Virtual Environment
 
 ```bash
-python3 -m venv venv
-source venv/bin/activate
+python3 -m venv /home/aeroclass/venv
+source /home/aeroclass/venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
 ```
