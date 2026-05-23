@@ -96,16 +96,37 @@ All configurations in `config.py` resolve **absolutely** relative to the project
 
 ## Maintenance & Updates
 
-### How to Pull Code Updates
-When you push new changes to GitHub, run the following in your PythonAnywhere Bash console:
+### How to Update the Application
+
+Whenever you push new changes to GitHub and want them live on PythonAnywhere, open your Bash console and run the appropriate commands:
+
+#### Option A: Standard Update (No new libraries added)
 ```bash
 # Navigate to project folder
 cd ~/9dt_wind_sim
 
-# Pull latest commits
+# 1. Pull the new code
 git pull
 
-# Reload website to apply changes
+# 2. Reload website to apply changes
+pa website reload --domain 'yourusername.pythonanywhere.com'
+```
+
+#### Option B: Update with Dependency Changes (If requirements.txt changed)
+```bash
+# Navigate to project folder
+cd ~/9dt_wind_sim
+
+# 1. Pull the new code
+git pull
+
+# 2. Activate virtual environment
+source venv/bin/activate
+
+# 3. Install new dependencies cleanly without cache
+pip install --no-cache-dir -r requirements.txt
+
+# 4. Reload website to apply changes
 pa website reload --domain 'yourusername.pythonanywhere.com'
 ```
 
