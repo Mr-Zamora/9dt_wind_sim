@@ -2,6 +2,8 @@
 
 Educational aerodynamics simulator for STEM classrooms. Students upload 3D vehicle designs (STL files) to analyze drag coefficients, top speed, and acceleration in a virtual wind tunnel.
 
+🚀 **Live Demo:** Try the live simulator instantly at [https://aeroclass.pythonanywhere.com/](https://aeroclass.pythonanywhere.com/)
+
 ## Features
 
 - **STL Upload & Validation**: Upload vehicle designs with automatic mesh quality checks
