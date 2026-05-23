@@ -1328,6 +1328,16 @@
 
             // Ingest file and invoke server validations
             async function handleFileUpload(file) {
+                // Check if file is larger than 500 KB and show warning
+                if (file.size > 500 * 1024) {
+                    const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+                    const proceed = confirm(`Notice: The selected file "${file.name}" is quite large (${sizeMB} MB).\n\nLarge files can take 10-30 seconds to upload and process over classroom Wi-Fi.\n\nDo you want to proceed?`);
+                    if (!proceed) {
+                        updateStatus('Ready - Upload an STL file to begin', 'ready');
+                        return;
+                    }
+                }
+
                 const formData = new FormData();
                 formData.append('file', file);
 
