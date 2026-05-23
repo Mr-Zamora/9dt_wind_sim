@@ -593,9 +593,13 @@
                             }
                             y_geom = seedY_geom;
                         } else {
-                            // 3. Vertical Flow (Center lines, near-center lines, hood lines, and high lines):
-                            // These climb and hug the front hood, windshield, and roof vertically
-                            y_geom = Math.max(seedY_geom, tY + SURF_GAP);
+                            // Exponential deflection decay to stack streamlines beautifully and prevent them merging
+                            const obstacleHeight = Math.max(0, tY - bellyMin);
+                            const heightAboveBelly = Math.max(0, seedY_geom - bellyMin);
+                            const decayScale = Math.max(0.1, carH * 1.15);
+                            const deflectionDecay = Math.exp(-heightAboveBelly / decayScale);
+                            
+                            y_geom = seedY_geom + obstacleHeight * deflectionDecay + SURF_GAP;
                             
                             // Gentle lateral nudge for non-center vertical lines
                             const absSZ = Math.abs(seedZ);
