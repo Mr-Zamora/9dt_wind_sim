@@ -40,23 +40,25 @@ UPLOAD_DIR.mkdir(exist_ok=True, parents=True)
 
 def purge_expired_uploads(directory_path: Path, max_age_seconds: int = 7200):
     """
-    Deletes uploaded STL files older than max_age_seconds (default 2 hours)
+    Deletes uploaded STL and cached JSON files older than max_age_seconds (default 2 hours)
     to prevent disk quota overflow on PythonAnywhere.
     """
     try:
         now = time.time()
         purged_count = 0
-        for file in directory_path.glob("*.stl"):
-            if file.is_file():
-                file_age = now - file.stat().st_mtime
-                if file_age > max_age_seconds:
-                    file.unlink(missing_ok=True)
-                    purged_count += 1
-                    print(f"[CLEANUP] Deleted expired file: {file.name}")
+        for suffix in ("*.stl", "*.json"):
+            for file in directory_path.glob(suffix):
+                if file.is_file():
+                    file_age = now - file.stat().st_mtime
+                    if file_age > max_age_seconds:
+                        file.unlink(missing_ok=True)
+                        purged_count += 1
+                        print(f"[CLEANUP] Deleted expired file: {file.name}")
         if purged_count > 0:
             print(f"[CLEANUP] Successfully purged {purged_count} expired files.")
     except Exception as e:
         print(f"[CLEANUP ERROR] Failed to purge old files: {e}")
+
 
 
 @router.post("/upload", response_model=DesignUploadResponse)
@@ -98,9 +100,16 @@ async def upload_design(file: UploadFile = File(...)):
     # Quick validation
     try:
         import traceback
+        import json
         print(f"Analyzing STL file: {file_path}")
         analysis = PhysicsService.analyze_stl(str(file_path))
         print(f"Analysis complete. Keys: {analysis.keys()}")
+        
+        # Cache the analysis results as JSON to prevent redundant CPU load on retrieval
+        analysis_native = convert_numpy_types(analysis)
+        json_path = UPLOAD_DIR / f"{design_id}.json"
+        with json_path.open("w") as f:
+            json.dump(analysis_native, f)
         
         file_size_mb = file_path.stat().st_size / (1024 * 1024)
         
@@ -108,7 +117,7 @@ async def upload_design(file: UploadFile = File(...)):
             design_id=design_id,
             filename=file.filename,
             file_size_mb=round(file_size_mb, 2),
-            num_triangles=analysis['stats']['num_triangles'],
+            num_triangles=analysis_native['stats']['num_triangles'],
             status="ready",
             message="File uploaded and validated successfully"
         )
@@ -119,6 +128,8 @@ async def upload_design(file: UploadFile = File(...)):
         print(f"Upload error: {e}")
         print(traceback.format_exc())
         file_path.unlink(missing_ok=True)
+        json_path = UPLOAD_DIR / f"{design_id}.json"
+        json_path.unlink(missing_ok=True)
         raise HTTPException(
             status_code=400,
             detail=f"Invalid STL file: {str(e)}"
@@ -137,6 +148,7 @@ async def get_design(design_id: str):
         Design metadata and geometry
     """
     file_path = UPLOAD_DIR / f"{design_id}.stl"
+    json_path = UPLOAD_DIR / f"{design_id}.json"
     
     if not file_path.exists():
         raise HTTPException(
@@ -145,13 +157,23 @@ async def get_design(design_id: str):
         )
     
     try:
-        analysis = PhysicsService.analyze_stl(str(file_path))
+        import json
+        if json_path.exists():
+            with json_path.open("r") as f:
+                analysis = json.load(f)
+        else:
+            # Fallback if cached JSON is missing
+            analysis = PhysicsService.analyze_stl(str(file_path))
+            analysis = convert_numpy_types(analysis)
+            # Re-cache it
+            with json_path.open("w") as f:
+                json.dump(analysis, f)
         
-        # Convert and flatten geometry for easier access
-        geom = convert_numpy_types(analysis['geometry'])
-        validation = convert_numpy_types(analysis['validation'])
-        stats = convert_numpy_types(analysis['stats'])
-        drag = convert_numpy_types(analysis['drag_analysis'])
+        # Geometry and analysis properties are already native types from JSON
+        geom = analysis['geometry']
+        validation = analysis['validation']
+        stats = analysis['stats']
+        drag = analysis['drag_analysis']
         
         return {
             "design_id": design_id,
@@ -217,6 +239,7 @@ async def delete_design(design_id: str):
         Deletion confirmation
     """
     file_path = UPLOAD_DIR / f"{design_id}.stl"
+    json_path = UPLOAD_DIR / f"{design_id}.json"
     
     if not file_path.exists():
         raise HTTPException(
@@ -226,6 +249,7 @@ async def delete_design(design_id: str):
     
     try:
         file_path.unlink()
+        json_path.unlink(missing_ok=True)
         return {
             "design_id": design_id,
             "status": "deleted",
